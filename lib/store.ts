@@ -1,90 +1,81 @@
-// server-side JSON store for trove. single-user, no db, no auth.
-// state lives in data/state.json; saved image files live in /library.
+// state store, now backed by SQLite (lib/db.ts). targeted row writes + synchronous
+// transactions mean concurrent swipes can no longer clobber each other (the old
+// read-whole-file / write-whole-file race is gone).
 
 import { promises as fs } from "fs";
 import path from "path";
-import type { State, SwipeRecord, LibraryItem, Prefs } from "./types";
+import { getDb, getMeta, setMeta, tx } from "./db";
 import { runningMean } from "./taste";
+import type { State, SwipeRecord, LibraryItem, Prefs } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const STATE_FILE = path.join(DATA_DIR, "state.json");
 export const LIBRARY_DIR = path.join(process.cwd(), "library");
 
-const EMPTY: State = {
-  taste: null,
-  tasteCount: 0,
-  prefs: { steer: "", avoid: "" },
-  swipes: [],
-  library: [],
-};
-
-async function ensureDirs() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.mkdir(LIBRARY_DIR, { recursive: true });
+function emptyPrefs(): Prefs {
+  return { steer: "", avoid: "" };
 }
 
 export async function readState(): Promise<State> {
-  try {
-    const raw = await fs.readFile(STATE_FILE, "utf8");
-    return { ...EMPTY, ...(JSON.parse(raw) as Partial<State>) };
-  } catch {
-    return { ...EMPTY };
-  }
+  const db = getDb();
+  const taste = getMeta("taste");
+  const swipes = db.prepare("SELECT id, dir, ts FROM swipes").all() as unknown as SwipeRecord[];
+  const library = (
+    db.prepare("SELECT json FROM library ORDER BY ts DESC").all() as unknown as { json: string }[]
+  ).map((r) => JSON.parse(r.json) as LibraryItem);
+  return {
+    taste: taste ? (JSON.parse(taste) as number[]) : null,
+    tasteCount: Number(getMeta("tasteCount") ?? "0"),
+    prefs: JSON.parse(getMeta("prefs") ?? JSON.stringify(emptyPrefs())) as Prefs,
+    swipes,
+    library,
+  };
 }
 
-async function writeState(state: State): Promise<void> {
-  await ensureDirs();
-  await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
-}
-
-// set of ids the user has already swiped — never show twice
+// just the ids the user has swiped — cheap, never show a card twice
 export async function seenIds(): Promise<Set<string>> {
-  const { swipes } = await readState();
-  return new Set(swipes.map((s) => s.id));
+  const rows = getDb().prepare("SELECT id FROM swipes").all() as unknown as { id: string }[];
+  return new Set(rows.map((r) => r.id));
 }
 
 export async function recordSwipe(rec: SwipeRecord): Promise<void> {
-  const state = await readState();
-  if (!state.swipes.some((s) => s.id === rec.id)) {
-    state.swipes.push(rec);
-    await writeState(state);
-  }
+  getDb()
+    .prepare("INSERT OR IGNORE INTO swipes(id, dir, ts) VALUES(?, ?, ?)")
+    .run(rec.id, rec.dir, rec.ts);
 }
 
 export async function addToLibrary(item: LibraryItem): Promise<void> {
-  const state = await readState();
-  if (!state.library.some((l) => l.id === item.id)) {
-    state.library.unshift(item); // newest first
-    await writeState(state);
-  }
+  getDb()
+    .prepare("INSERT OR IGNORE INTO library(id, json, ts) VALUES(?, ?, ?)")
+    .run(item.id, JSON.stringify(item), item.ts);
 }
 
 export async function getLibrary(): Promise<LibraryItem[]> {
-  const { library } = await readState();
-  return library;
+  const rows = getDb().prepare("SELECT json FROM library ORDER BY ts DESC").all() as unknown as { json: string }[];
+  return rows.map((r) => JSON.parse(r.json) as LibraryItem);
 }
 
 export async function getPrefs(): Promise<Prefs> {
-  return (await readState()).prefs ?? { steer: "", avoid: "" };
+  return JSON.parse(getMeta("prefs") ?? JSON.stringify(emptyPrefs())) as Prefs;
 }
 
 export async function setPrefs(prefs: Prefs): Promise<void> {
-  const state = await readState();
-  state.prefs = { steer: prefs.steer ?? "", avoid: prefs.avoid ?? "" };
-  await writeState(state);
+  setMeta("prefs", JSON.stringify({ steer: prefs.steer ?? "", avoid: prefs.avoid ?? "" }));
 }
 
-// fold a liked image's embedding into the taste vector (running mean)
+// fold a liked image's embedding into the taste vector (running mean).
+// read + write happen synchronously with no await between → race-free.
 export async function updateTaste(vec: number[]): Promise<void> {
-  const state = await readState();
-  state.taste = runningMean(state.taste, state.tasteCount, vec);
-  state.tasteCount += 1;
-  await writeState(state);
+  tx(() => {
+    const cur = getMeta("taste");
+    const count = Number(getMeta("tasteCount") ?? "0");
+    const next = runningMean(cur ? (JSON.parse(cur) as number[]) : null, count, vec);
+    setMeta("taste", JSON.stringify(next));
+    setMeta("tasteCount", String(count + 1));
+  });
 }
 
 // download a remote image into /library and return the saved filename
 export async function saveImageFile(id: string, url: string): Promise<string> {
-  await ensureDirs();
+  await fs.mkdir(LIBRARY_DIR, { recursive: true });
   const res = await fetch(url);
   if (!res.ok) throw new Error(`fetch image failed: ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());

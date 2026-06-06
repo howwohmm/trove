@@ -2,13 +2,11 @@
 // then have Claude name each one + give search keywords. these facets ARE the
 // categories, the multi-interest recommendation model, and the retrieval queries.
 
-import { promises as fs } from "fs";
-import path from "path";
 import { getLibrary } from "./store";
 import { getEmbedding } from "./embeddings";
 import { hasClaude, labelFacet } from "./claude";
+import { getMeta, setMeta } from "./db";
 
-const FILE = path.join(process.cwd(), "data", "facets.json");
 const RECOMPUTE_DELTA = 5; // recompute after this many new keeps
 const MIN_TO_CLUSTER = 6;
 
@@ -26,30 +24,24 @@ interface FacetStore {
   count: number; // library size when last computed
 }
 
-let cache: FacetStore | null = null;
-let writeChain: Promise<void> = Promise.resolve();
 let computing = false;
 
-async function load(): Promise<FacetStore> {
-  if (cache) return cache;
+function load(): FacetStore {
+  const raw = getMeta("facets");
+  if (!raw) return { facets: [], count: 0 };
   try {
-    cache = JSON.parse(await fs.readFile(FILE, "utf8")) as FacetStore;
+    return JSON.parse(raw) as FacetStore;
   } catch {
-    cache = { facets: [], count: 0 };
+    return { facets: [], count: 0 };
   }
-  return cache;
 }
 
-function persist() {
-  writeChain = writeChain.then(async () => {
-    await fs.mkdir(path.dirname(FILE), { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(cache ?? { facets: [], count: 0 }));
-  });
-  return writeChain;
+function persist(store: FacetStore): void {
+  setMeta("facets", JSON.stringify(store));
 }
 
 export async function getFacets(): Promise<Facet[]> {
-  return (await load()).facets;
+  return load().facets;
 }
 
 // ---- k-means (embeddings are unit-normalized, so squared-euclidean ranks like cosine)
@@ -158,8 +150,7 @@ export async function computeFacets(): Promise<void> {
       });
     }
     facets.sort((a, b) => b.size - a.size);
-    cache = { facets, count: lib.length };
-    await persist();
+    persist({ facets, count: lib.length });
   } finally {
     computing = false;
   }
@@ -169,7 +160,7 @@ export async function computeFacets(): Promise<void> {
 export function scheduleFacets(): void {
   void (async () => {
     if (computing) return;
-    const store = await load();
+    const store = load();
     const lib = await getLibrary();
     if (
       lib.length >= MIN_TO_CLUSTER &&

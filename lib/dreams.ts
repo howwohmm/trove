@@ -15,6 +15,7 @@ import {
 } from "./claude";
 import { generateImage, activeProvider, GENERATED_DIR } from "./generate";
 import { getFacets } from "./facets";
+import { getDb, tx } from "./db";
 
 // a generated image as a base64 data url, to use as a visual reference
 async function genRefDataUrl(file: string): Promise<string | null> {
@@ -26,8 +27,6 @@ async function genRefDataUrl(file: string): Promise<string | null> {
     return null;
   }
 }
-
-const FILE = path.join(process.cwd(), "data", "dreams.json");
 
 const PER_FACET_THRESHOLD = Number(process.env.TROVE_GEN_THRESHOLD) || 2; // worthy imgs in one facet before it dreams
 const DESCRIBE_MAX = 8; // cap describe work per tick to bound cost/latency
@@ -62,7 +61,6 @@ interface DreamStore {
 }
 
 let cache: DreamStore | null = null;
-let writeChain: Promise<void> = Promise.resolve();
 
 // serial generation queue: ticks and breeds run one-at-a-time, never dropped,
 // never colliding on dream ids. (image gen + claude calls are the bottleneck.)
@@ -76,22 +74,32 @@ function exclusive<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
+// in-memory working copy mirrors the SQLite tables; persist() flushes it back in
+// one transaction (atomic — no torn writes).
 async function load(): Promise<DreamStore> {
   if (cache) return cache;
-  try {
-    cache = JSON.parse(await fs.readFile(FILE, "utf8")) as DreamStore;
-  } catch {
-    cache = { descriptions: {}, dreams: [] };
+  const db = getDb();
+  const descRows = db.prepare("SELECT json FROM descriptions").all() as unknown as { json: string }[];
+  const dreamRows = db.prepare("SELECT json FROM dreams ORDER BY ts DESC").all() as unknown as { json: string }[];
+  const descriptions: Record<string, StoredDesc> = {};
+  for (const r of descRows) {
+    const d = JSON.parse(r.json) as StoredDesc;
+    descriptions[d.id] = d;
   }
+  cache = { descriptions, dreams: dreamRows.map((r) => JSON.parse(r.json) as Dream) };
   return cache;
 }
 
-function persist() {
-  writeChain = writeChain.then(async () => {
-    await fs.mkdir(path.dirname(FILE), { recursive: true });
-    await fs.writeFile(FILE, JSON.stringify(cache ?? { descriptions: {}, dreams: [] }, null, 2));
+function persist(): void {
+  const c = cache;
+  if (!c) return;
+  const db = getDb();
+  tx(() => {
+    const di = db.prepare("INSERT OR REPLACE INTO descriptions(id, json) VALUES(?, ?)");
+    for (const d of Object.values(c.descriptions)) di.run(d.id, JSON.stringify(d));
+    const dm = db.prepare("INSERT OR REPLACE INTO dreams(id, json, ts) VALUES(?, ?, ?)");
+    for (const dr of c.dreams) dm.run(dr.id, JSON.stringify(dr), dr.ts);
   });
-  return writeChain;
 }
 
 export async function getDreams(): Promise<Dream[]> {
