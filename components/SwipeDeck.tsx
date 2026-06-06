@@ -9,6 +9,7 @@ import {
   type PanInfo,
 } from "motion/react";
 import type { Candidate, SwipeDir } from "@/lib/types";
+import { LottiePlayer } from "@/components/LottiePlayer";
 
 const FETCH_AHEAD = 6; // refill the deck when it gets this short
 const SWIPE_THRESHOLD = 110; // px of drag to commit
@@ -30,6 +31,8 @@ export function SwipeDeck() {
   const [tasteCount, setTasteCount] = useState(0);
   const [facets, setFacets] = useState<{ id: string; label: string }[]>([]);
   const [facetId, setFacetId] = useState<string | null>(null);
+  const [showBurst, setShowBurst] = useState(false);
+  const [burstKey, setBurstKey] = useState(0);
   const fetching = useRef(false);
 
   const x = useMotionValue(0);
@@ -99,7 +102,12 @@ export function SwipeDeck() {
       }).catch(() => {});
 
       setSeenCount((n) => n + 1);
-      if (dir === "like") setSaved((n) => n + 1);
+      if (dir === "like") {
+        setSaved((n) => n + 1);
+        setBurstKey((k) => k + 1);
+        setShowBurst(true);
+        setTimeout(() => setShowBurst(false), 900);
+      }
 
       const fly = dir === "like" ? 1200 : -1200;
       animate(x, fly, { duration: 0.28, ease: [0.32, 0.72, 0, 1] }).then(() => {
@@ -168,12 +176,23 @@ export function SwipeDeck() {
         )}
       </p>
       <div className="deck">
-        {loading && deck.length === 0 && <p className="hint">gathering images…</p>}
+        {loading && deck.length === 0 && (
+          <p className="hint">
+            <LottiePlayer name="typing" className="lottie-load" />
+            gathering images…
+          </p>
+        )}
 
         {!loading && !top && (
           <p className="hint">
             that&apos;s the pool for now. refresh to keep going.
           </p>
+        )}
+
+        {showBurst && (
+          <div className="burst" key={burstKey}>
+            <LottiePlayer name="sparkle" loop={false} />
+          </div>
         )}
 
         {/* card underneath (static, gives the stack depth) */}
