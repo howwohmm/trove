@@ -38,12 +38,48 @@ echo "UNSPLASH_ACCESS_KEY=your_key" > .env.local
 Since trove is personal and never republishes images, sourcing is low-risk —
 but if you ever make it public, respect each source's API terms.
 
+## taste algo (phase 2)
+
+Every keep is embedded with CLIP (in-process via transformers.js — no python, no
+api) and folded into a running taste vector. Candidates are then ranked by cosine
+similarity to your taste, with ~25% exploration mixed in so it keeps learning.
+First keep downloads the model (~90MB) once; after that it's instant. The deck
+shows whether taste is `calibrating`, `warming up`, or `tuned`.
+
+## dreams — generate images in your taste (phase 3)
+
+trove can also *generate* new images in your aesthetic:
+
+```
+keep → Claude describes the aesthetic → Claude DECIDES if it's worth generating
+     → [N worthy aesthetics accumulate] → Claude writes a fresh prompt
+     → image model generates → /dreams gallery
+```
+
+Needs two keys in `.env.local`:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...   # describe + decider + prompt synthesis
+FAL_KEY=...                    # best image output (fal.ai, pay-per-image)
+```
+
+**Image model** (premium, on fal.ai) — pick the look via `FAL_MODEL`:
+
+| `FAL_MODEL` | slug | character |
+| --- | --- | --- |
+| _(default)_ | `fal-ai/flux-pro/v1.1-ultra` | cinematic, photoreal, most "finished" |
+| recraft | `fal-ai/recraft/v3/text-to-image` | art-directed, design, illustration |
+| ideogram | `fal-ai/ideogram/v3` | editorial, typography |
+
+Cheap fallback: set `TOGETHER_API_KEY` instead for Together FLUX.1-schnell
+(~$0.003/image, lower quality). Tune how readily it generates with
+`TROVE_GEN_THRESHOLD` (default 3 worthy descriptions).
+
 ## roadmap
 
-- **phase 2 — taste algo:** embed each image (CLIP), keep a running taste vector
-  from your right-swipes, rank candidates by cosine similarity. The `taste` field
-  in `state.json` is already reserved for it.
-- collections / tags, undo last swipe, more sources.
+- collections / tags, undo last swipe
+- swipe the dreams too → kept dreams reinforce taste; their prompts get reused/mutated
+- more + more varied sources (the decider rewards variety)
 
 ## stack
 

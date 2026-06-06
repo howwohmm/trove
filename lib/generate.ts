@@ -1,18 +1,35 @@
-// image generation. two providers, picked by which key is present:
-//   FAL_KEY            -> fal.ai Flux Pro 1.1  (best output, ~$0.04/image)
-//   TOGETHER_API_KEY   -> Together FLUX.1-schnell-Free  (genuinely free tier)
-// (keyless services like pollinations are now paywalled, so a key is required.)
+// image generation. premium-first, single key (fal.ai hosts the best models).
+//   FAL_KEY          -> fal.ai, model from FAL_MODEL (default Flux 1.1 Pro Ultra)
+//   TOGETHER_API_KEY -> Together FLUX.1-schnell  (cheap/fast fallback, ~$0.003)
+// pick the look via FAL_MODEL (see PREMIUM_MODELS below).
 
 import { promises as fs } from "fs";
 import path from "path";
 
 export const GENERATED_DIR = path.join(process.cwd(), "generated");
 
-export type GenProvider = "fal-flux-pro" | "together-flux-free" | "none";
+// best aesthetic models on fal — set FAL_MODEL to one of these slugs.
+// default is the "midjourney-type" cinematic, most-finished option.
+export const PREMIUM_MODELS = {
+  "flux-ultra": "fal-ai/flux-pro/v1.1-ultra", // cinematic / photoreal / most finished
+  recraft: "fal-ai/recraft/v3/text-to-image", // art-directed / design / illustration
+  ideogram: "fal-ai/ideogram/v3", // editorial / typography
+} as const;
+
+const FAL_MODEL = process.env.FAL_MODEL || PREMIUM_MODELS["flux-ultra"];
+
+export type GenProvider = "fal" | "together-flux-schnell" | "none";
 
 export function activeProvider(): GenProvider {
-  if (process.env.FAL_KEY) return "fal-flux-pro";
-  if (process.env.TOGETHER_API_KEY) return "together-flux-free";
+  if (process.env.FAL_KEY) return "fal";
+  if (process.env.TOGETHER_API_KEY) return "together-flux-schnell";
+  return "none";
+}
+
+// human-readable label of what's actually generating (shown in the UI)
+export function providerLabel(): string {
+  if (process.env.FAL_KEY) return `fal · ${FAL_MODEL.split("/").slice(1).join("/")}`;
+  if (process.env.TOGETHER_API_KEY) return "together · flux-schnell";
   return "none";
 }
 
@@ -29,9 +46,9 @@ async function fetchToFile(id: string, url: string): Promise<string> {
   return save(id, await res.arrayBuffer());
 }
 
-// best output, needs FAL_KEY
-async function genFalFluxPro(id: string, prompt: string): Promise<string> {
-  const res = await fetch("https://fal.run/fal-ai/flux-pro/v1.1", {
+// best output. fal's premium models all share a compatible request shape.
+async function genFal(id: string, prompt: string): Promise<string> {
+  const res = await fetch(`https://fal.run/${FAL_MODEL}`, {
     method: "POST",
     headers: {
       Authorization: `Key ${process.env.FAL_KEY}`,
@@ -39,9 +56,10 @@ async function genFalFluxPro(id: string, prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       prompt,
-      image_size: "portrait_4_3",
+      aspect_ratio: "3:4", // portrait, matches the card
       num_images: 1,
-      safety_tolerance: "5",
+      output_format: "jpeg",
+      safety_tolerance: "6",
     }),
   });
   if (!res.ok) throw new Error(`fal ${res.status}: ${await res.text()}`);
@@ -51,8 +69,8 @@ async function genFalFluxPro(id: string, prompt: string): Promise<string> {
   return fetchToFile(id, imgUrl);
 }
 
-// free tier, needs TOGETHER_API_KEY
-async function genTogetherFree(id: string, prompt: string): Promise<string> {
+// cheap/fast fallback
+async function genTogether(id: string, prompt: string): Promise<string> {
   const res = await fetch("https://api.together.xyz/v1/images/generations", {
     method: "POST",
     headers: {
@@ -60,7 +78,7 @@ async function genTogetherFree(id: string, prompt: string): Promise<string> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "black-forest-labs/FLUX.1-schnell-Free",
+      model: "black-forest-labs/FLUX.1-schnell",
       prompt,
       width: 768,
       height: 1024,
@@ -80,9 +98,9 @@ async function genTogetherFree(id: string, prompt: string): Promise<string> {
 
 export async function generateImage(id: string, prompt: string): Promise<string> {
   const provider = activeProvider();
-  if (provider === "fal-flux-pro") return genFalFluxPro(id, prompt);
-  if (provider === "together-flux-free") return genTogetherFree(id, prompt);
+  if (provider === "fal") return genFal(id, prompt);
+  if (provider === "together-flux-schnell") return genTogether(id, prompt);
   throw new Error(
-    "no image provider — set FAL_KEY (best) or TOGETHER_API_KEY (free) in .env.local"
+    "no image provider — set FAL_KEY (best) or TOGETHER_API_KEY (cheap) in .env.local"
   );
 }

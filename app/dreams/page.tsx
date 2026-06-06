@@ -6,6 +6,7 @@ import type { Dream } from "@/lib/dreams";
 interface DreamData {
   dreams: Dream[];
   provider: string;
+  hasProvider: boolean;
   enabled: boolean;
 }
 
@@ -30,7 +31,7 @@ export default function DreamsPage() {
       </p>
     );
 
-  if (data.dreams.length === 0 && data.provider === "none")
+  if (data.dreams.length === 0 && !data.hasProvider)
     return (
       <p className="hint">
         the taste brain is on, but no image generator is set. add{" "}
