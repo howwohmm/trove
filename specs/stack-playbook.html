@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>trove — stack playbook (deep doc research)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#262626;--soft:#2d2d2d;--line:#3a3a3a;--text:#e6e3df;--dim:#9a948c;--faint:#6b665f;--crit:#e08585;--cost:#cbb583;--qual:#8fb0c9;--polish:#9a948c;--good:#8fb89a;--accent:#c9a8d4;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Manrope',system-ui,sans-serif;font-weight:300;line-height:1.65;letter-spacing:.01em;-webkit-font-smoothing:antialiased;padding:7vh 6vw 16vh;max-width:960px;margin:0 auto}
+  ::selection{background:var(--accent);color:#1a1a1a}
+  h1{font-weight:200;font-size:clamp(2.1rem,5vw,3rem);letter-spacing:-.02em;margin-bottom:.3rem}
+  .meta{color:var(--faint);font-size:.85rem;margin-bottom:2.5rem}
+  h2{font-weight:300;font-size:1.35rem;margin:3rem 0 .4rem;display:flex;align-items:center;gap:.6rem}
+  h2 .lane{font-size:.68rem;font-weight:400;padding:.16rem .6rem;border-radius:999px;border:1px solid}
+  h2.crit .lane{color:var(--crit);border-color:var(--crit)}
+  h2.cost .lane{color:var(--cost);border-color:var(--cost)}
+  h2.qual .lane{color:var(--qual);border-color:var(--qual)}
+  h2.polish .lane{color:var(--polish);border-color:var(--polish)}
+  h2 .sub{font-size:.85rem;color:var(--faint)}
+  .item{border-left:2px solid var(--line);padding:.1rem 0 .1rem 1.1rem;margin:1.1rem 0}
+  .item.c{border-color:var(--crit)} .item.co{border-color:var(--cost)} .item.q{border-color:var(--qual)} .item.p{border-color:var(--polish)}
+  .item h3{font-weight:400;font-size:.98rem;color:var(--text);margin-bottom:.15rem}
+  .item .src{font-family:ui-monospace,Menlo,monospace;font-size:.74rem;color:var(--faint)}
+  .item p{color:var(--dim);font-size:.9rem;margin:.25rem 0}
+  .item .do{color:var(--text)} .item .do b{color:var(--good);font-weight:400}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:.82em;color:var(--accent);background:#1f1f1f;padding:.04rem .3rem;border-radius:3px}
+  .bug{color:var(--crit);font-weight:400}
+  hr{border:none;border-top:1px solid var(--line);margin:0}
+  .verdict{border:1px solid var(--line);border-radius:14px;padding:1.4rem 1.7rem;margin:1.8rem 0;background:var(--soft);font-weight:200;font-size:1.05rem;line-height:1.55}
+  .verdict em{color:var(--accent);font-style:normal}
+  ol{margin:.5rem 0 0 1.1rem;color:var(--dim)} ol li{margin-bottom:.45rem;font-size:.92rem}
+  ol li b{color:var(--text);font-weight:400}
+  footer{margin-top:4rem;padding-top:2rem;border-top:1px solid var(--line);color:var(--faint);font-size:.8rem}
+</style>
+</head>
+<body>
+  <h1>stack playbook</h1>
+  <p class="meta">trove · deep-research across the actual stack docs (Next.js · Node · transformers.js · Claude · OpenRouter/Gemini · Unsplash), mapped to our open problems · 2026-06-07</p>
+
+  <div class="verdict">
+    The headline: <em>migrate the data layer to <code>node:sqlite</code></em> (kills the critical data-loss bugs for free, no native binary), <em>cut Claude + image-gen cost ~50–60%</em> (you're near budget), and <em>unlock the taste→keyword retrieval + aesthetic scoring</em> the personas wanted — all confirmed against primary docs. The fire-and-forget pattern is fine (we're long-running Node, not serverless). Three new bugs found en route.
+  </div>
+
+  <hr>
+  <h2 class="crit"><span class="lane">critical · data</span> <span class="sub">stop losing data</span></h2>
+
+  <div class="item c">
+    <h3>Migrate JSON stores → <code>node:sqlite</code></h3>
+    <div class="src">Node 25 built-in · lib/store.ts, embeddings.ts, corpus.ts, facets.ts, dreams.ts</div>
+    <p>A single SQLite <code>BEGIN…COMMIT</code> makes <span class="bug">C1 (lost updates)</span> and <span class="bug">C3 (torn writes)</span> vanish by construction — atomic + isolated transactions. It's compiled into Node (no <code>npm install</code>, no <code>.node</code> file to corrupt → dodges the truncated-binary scare). WAL + <code>synchronous=FULL</code>, embeddings as BLOB rows (no more 8MB full-file rewrite per embed), built-in <code>backup()</code>.</p>
+    <p class="do"><b>Do:</b> one <code>data/trove.db</code>, transaction per keep, embeddings as <code>Float32Array</code> BLOBs, in-JS cosine (no vector index needed at this scale).</p>
+  </div>
+  <div class="item c">
+    <h3>Hotfix path (if migrating later)</h3>
+    <div class="src">async-mutex + write-file-atomic</div>
+    <p>Wrap the whole keep (recordSwipe+addToLibrary+updateTaste) in ONE <code>mutex.runExclusive</code> = single read + single write. Use <code>write-file-atomic</code> (temp+rename+fsync). And <span class="bug">fix the loader's <code>catch → EMPTY</code></span> to fall back to a <code>.bak</code> instead of silently wiping everything.</p>
+  </div>
+
+  <hr>
+  <h2 class="cost"><span class="lane">cost · you're near budget</span> <span class="sub">~50–60% cheaper</span></h2>
+
+  <div class="item co">
+    <h3>Merge <code>describe</code> + <code>decide</code> into ONE Claude call</h3>
+    <div class="src">lib/claude.ts · runs on every kept image</div>
+    <p>decide reads nothing new from the image — fold <code>worth/score/reason</code> into the describe schema. <b>Halves per-image calls.</b> Biggest single lever.</p>
+  </div>
+  <div class="item co">
+    <h3>Batch API for the describe pass → flat 50% off</h3>
+    <div class="src">messages.batches · dreamTick is already a background queue</div>
+    <p class="do"><b>Do:</b> submit describe(+decide) as a batch keyed by <code>item.id</code>. Stacks with the merge → ~75% cheaper than today's two synchronous calls.</p>
+  </div>
+  <div class="item co">
+    <h3>Structured Outputs — delete the fragile <code>parseJson</code></h3>
+    <div class="src">output_config.format · Haiku/Sonnet both support it</div>
+    <p>Grammar-constrained valid JSON. Removes the <code>indexOf("{")</code> hack and silent parse failures. (Clamp numeric ranges in TS — schema can't enforce 0–1.)</p>
+  </div>
+  <div class="item co">
+    <h3><span class="bug">BUG</span> + cost: image-gen fixes</h3>
+    <div class="src">lib/generate.ts</div>
+    <p><span class="bug">Seedream slug is wrong</span> (<code>bytedance/seedream-4.5</code> → <code>bytedance-seed/seedream-4.5</code>, currently 404s). <span class="bug">fal/Together fallbacks silently drop the reference images</span> (your core quality lever). Cost: <code>image_size 2K→1K</code> = 33% cheaper; cap refs to 3–4; <b>Seedream 4.5 = $0.04 flat &amp; takes refs</b> → best value default while credits are tight.</p>
+  </div>
+  <div class="item co">
+    <h3>Native OpenRouter fallback + credit guard</h3>
+    <div class="src">openrouter docs</div>
+    <p class="do"><b>Do:</b> send <code>models:[nano-banana-2, seedream-4.5, flux.2-pro]</code> + <code>provider:{sort:"price"}</code> in one request (keeps image-conditioning on every fallback, unlike the fal path). Gate on <code>GET /api/v1/key</code> <code>limit_remaining</code> before generating.</p>
+  </div>
+  <div class="item co">
+    <h3>Fix the O(n²) qualities blob; skip prompt caching</h3>
+    <div class="src">lib/dreams.ts decide loop</div>
+    <p><code>existingQualities</code> is recomputed + resent every decide call → quadratic token growth as the library grows. Compute once / use embedding-dedup instead. Prompt caching is a <b>no-op on Haiku</b> (4,096-token floor &gt; our prompts) — don't bother. Tighten <code>max_tokens</code> (output is 5× input price).</p>
+  </div>
+
+  <hr>
+  <h2 class="qual"><span class="lane">quality · the personas' wishlist</span></h2>
+
+  <div class="item q">
+    <h3>Switch CLIP pipeline → explicit vision+text projection classes</h3>
+    <div class="src">lib/embed.ts · CLIPVisionModelWithProjection + CLIPTextModelWithProjection</div>
+    <p>The <code>image-feature-extraction</code> pipeline's CLIP routing is fragile (broke in a past version). Explicit classes guarantee image &amp; text land in the SAME 512-d space — which <b>unlocks taste→keywords</b>: embed an aesthetic vocab once, score vs the taste centroid by cosine → real retrieval queries (the CTO's "interests as shared vocabulary").</p>
+  </div>
+  <div class="item q">
+    <h3>LAION aesthetic score = one dot product (≈free)</h3>
+    <div class="src">sa_0_4_vit_b_32_linear · matches our 512-d vectors</div>
+    <p>A single linear head on the CLIP vectors we already compute. Dump weights to JSON, <code>dot(emb, W)+b</code> → a quality signal to blend into ranking + the decider. Zero new deps.</p>
+  </div>
+  <div class="item q">
+    <h3>Unsplash grid: <code>urls.raw</code> + imgix params (60–80% smaller, FREE)</h3>
+    <div class="src">unsplash imgix · CDN bytes don't count vs rate limit</div>
+    <p class="do"><b>Do:</b> <code>urls.raw + auto=format,compress&amp;fit=clip&amp;w=COL&amp;dpr≤2&amp;q=45-60</code> (preserve <code>ixid</code>). Ships exactly column-width AVIF/WebP instead of fixed 1080px JPEG. Cold-start from <code>/topics</code> (curated) not <code>/photos/random</code>.</p>
+  </div>
+  <div class="item q">
+    <h3>SigLIP2 — flagged future upgrade</h3>
+    <div class="src">onnx-community/siglip2-base-patch16-224-ONNX</div>
+    <p>Beats CLIP ViT-B/32 on retrieval (our use case). 768-d, slower, needs re-embedding the corpus + <code>padding:"max_length"</code>. One config constant; do it after taste→keywords ships.</p>
+  </div>
+
+  <hr>
+  <h2 class="polish"><span class="lane">polish · correctness &amp; perf</span></h2>
+  <div class="item p">
+    <h3>The race is real, but fire-and-forget is safe</h3>
+    <div class="src">Next.js long-running Node, not serverless</div>
+    <p><code>scheduleDream/scheduleFacets/warmEmbeddings</code> <b>complete fine</b> on our Node server (the "Next kills background work" warning is serverless-only). The actual bug is <code>store.ts</code> (fixed by the sqlite migration). Wrap triggers in <code>after()</code> for future-proofing + add observability (replace silent <code>.catch(()=>{})</code> with logged failures surfaced in <code>/status</code>).</p>
+  </div>
+  <div class="item p">
+    <h3><code>next/image</code> in the feeds + Unsplash <code>remotePatterns</code></h3>
+    <p>Sharp is already installed → optimizer works. Convert library/dreams masonry to <code>&lt;Image fill sizes…&gt;</code> (lazy, AVIF, blur). Leave the swipe deck on raw <code>&lt;img&gt;</code>. Drop redundant <code>force-dynamic</code> (handlers are uncached by default).</p>
+  </div>
+  <div class="item p">
+    <h3>Turbopack stale-CSS = confirmed bug</h3>
+    <p>Set <code>experimental:{turbopackFileSystemCacheForDev:false}</code> (likely fixes it) or use <code>next dev --webpack</code> during design work.</p>
+  </div>
+  <div class="item p">
+    <h3>Unsplash production compliance</h3>
+    <p>We're <span class="bug">non-compliant</span>: missing the <code>download_location</code> trigger on save + UTM attribution. Needed for the 5,000/hr production tier (worth applying — low effort). Add Pexels as a 2nd corpus source (200/hr, free-unlimited w/ attribution).</p>
+  </div>
+
+  <hr>
+  <h2>recommended build sequence</h2>
+  <ol>
+    <li><b>Data: migrate to node:sqlite</b> — protects your 190+ keeps. Everything else builds on a trustworthy store.</li>
+    <li><b>Cost: merge describe+decide + Structured Outputs + batch + fix gen bugs (seedream slug, refs-on-fallback) + drop to 1K</b> — keeps you generating without running out of credit.</li>
+    <li><b>Quality: explicit CLIP classes → taste→keyword retrieval + LAION aesthetic score + imgix grid URLs</b> — the persona wishlist, makes recs sharper and the feed lighter.</li>
+    <li><b>Polish: after()+observability, next/image, turbopack flag, Unsplash compliance/Pexels</b>.</li>
+  </ol>
+
+  <footer>
+    trove · stack playbook · synthesized from 6 parallel deep-doc researchers, all cited to primary docs (nextjs.org, nodejs.org, huggingface.co, platform.claude.com, openrouter.ai, unsplash.com). Full transcripts in session history.
+  </footer>
+</body>
+</html>
