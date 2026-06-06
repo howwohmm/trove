@@ -13,9 +13,20 @@ export const GENERATED_DIR = path.join(process.cwd(), "generated");
 export const OPENROUTER_MODELS = {
   "nano-banana-2": "google/gemini-3.1-flash-image-preview", // SOTA quality/speed (default)
   "nano-banana-pro": "google/gemini-3-pro-image", // top-tier, pricier
-  seedream: "bytedance/seedream-4.5", // flat $0.04/img, great editing
+  seedream: "bytedance-seed/seedream-4.5", // flat $0.04/img, great editing (cheapest that takes refs)
   "flux-2-pro": "black-forest-labs/flux.2-pro",
 } as const;
+
+// fallback chain (tried in order on any error) — all take image refs, so taste
+// conditioning survives a fallback. cheapest-capable last.
+const OR_FALLBACKS = [
+  OPENROUTER_MODELS.seedream,
+  OPENROUTER_MODELS["flux-2-pro"],
+];
+
+// 1K is 33% cheaper than 2K with minimal quality loss for the feed
+const OR_IMAGE_SIZE = process.env.TROVE_IMAGE_SIZE || "1K";
+const MAX_REFS = 4; // more references dilute the strongest one
 
 // best models on fal.ai
 export const FAL_MODELS = {
@@ -43,10 +54,11 @@ export function providerLabel(): string {
   return "none";
 }
 
-async function save(id: string, bytes: ArrayBuffer, ext = "jpg"): Promise<string> {
+async function save(id: string, bytes: ArrayBuffer | Buffer, ext = "jpg"): Promise<string> {
   await fs.mkdir(GENERATED_DIR, { recursive: true });
   const file = `${id}.${ext}`;
-  await fs.writeFile(path.join(GENERATED_DIR, file), Buffer.from(bytes));
+  const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  await fs.writeFile(path.join(GENERATED_DIR, file), buf);
   return file;
 }
 
@@ -61,22 +73,26 @@ async function saveDataUrl(id: string, dataUrl: string): Promise<string> {
   const m = dataUrl.match(/^data:image\/(\w+);base64,([\s\S]*)$/);
   if (!m) throw new Error("not a base64 image data url");
   const ext = m[1] === "jpeg" ? "jpg" : m[1];
-  return save(id, Buffer.from(m[2], "base64").buffer, ext);
+  return save(id, Buffer.from(m[2], "base64"), ext); // pass the Buffer directly (exact length)
 }
 
 // OpenRouter image gen via the chat-completions endpoint (modalities: image).
 // refs = reference image urls (your real kept images) — Nano Banana conditions on
 // them so the output actually matches your visual taste, not just the text.
 async function genOpenRouter(id: string, prompt: string, refs: string[] = []): Promise<string> {
+  const capped = refs.slice(0, MAX_REFS);
   const content: unknown[] = [
     {
       type: "text",
-      text: refs.length
+      text: capped.length
         ? `${prompt}\n\nUse the reference images ONLY for aesthetic — palette, light, composition, texture. Create a NEW scene, do not copy them.`
         : prompt,
     },
-    ...refs.map((url) => ({ type: "image_url", image_url: { url } })),
+    ...capped.map((url) => ({ type: "image_url", image_url: { url } })),
   ];
+  // models[] = native OpenRouter fallback: tried in order on any error, billed
+  // only for the one that responds. keeps image-conditioning across fallbacks.
+  const models = [OR_MODEL, ...OR_FALLBACKS.filter((m) => m !== OR_MODEL)];
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -87,9 +103,11 @@ async function genOpenRouter(id: string, prompt: string, refs: string[] = []): P
     },
     body: JSON.stringify({
       model: OR_MODEL,
+      models,
+      provider: { sort: "price" },
       messages: [{ role: "user", content }],
       modalities: ["image", "text"],
-      image_config: { aspect_ratio: "3:4", image_size: "2K" },
+      image_config: { aspect_ratio: "3:4", image_size: OR_IMAGE_SIZE },
     }),
   });
   if (!res.ok) throw new Error(`openrouter ${res.status}: ${await res.text()}`);
@@ -143,7 +161,7 @@ async function genTogether(id: string, prompt: string): Promise<string> {
   const data = (await res.json()) as { data?: { url?: string; b64_json?: string }[] };
   const item = data.data?.[0];
   if (item?.url) return fetchToFile(id, item.url);
-  if (item?.b64_json) return save(id, Buffer.from(item.b64_json, "base64").buffer);
+  if (item?.b64_json) return save(id, Buffer.from(item.b64_json, "base64"));
   throw new Error("together returned no image");
 }
 

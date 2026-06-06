@@ -48,5 +48,5 @@ export function warmEmbeddings(items: { id: string; url: string }[], max = 12): 
         // ignore individual failures
       }
     }
-  })();
+  })().catch(() => {});
 }

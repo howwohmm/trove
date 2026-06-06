@@ -8,7 +8,6 @@ import { getLibrary, getPrefs } from "./store";
 import {
   hasClaude,
   describe,
-  decide,
   synthesizePrompt,
   mutatePrompt,
   type Description,
@@ -33,9 +32,6 @@ const DESCRIBE_MAX = 8; // cap describe work per tick to bound cost/latency
 
 interface StoredDesc extends Description {
   id: string;
-  worth: boolean;
-  score: number;
-  reason: string;
   used: boolean; // already folded into a generated dream
   ts: number;
 }
@@ -166,6 +162,9 @@ export async function dreamFromFacet(facetId: string): Promise<TickResult> {
       text: `the aesthetic: ${facet.label}`,
       qualities: facet.queries,
       distinctiveness: 1,
+      worth: true,
+      score: 1,
+      reason: "user-chosen facet",
     };
     const prompt = await synthesizePrompt([pseudo], await getPrefs());
     if (!prompt) return base;
@@ -254,30 +253,20 @@ export async function dreamTick(): Promise<TickResult> {
     const store = await load();
     const library = await getLibrary();
 
-    // 1. describe + decide any kept images we haven't processed yet
+    // 1. describe + decide (one merged call) any kept images we haven't processed yet
     const pending = library.filter((l) => !store.descriptions[l.id]).slice(0, DESCRIBE_MAX);
     let described = 0;
     for (const item of pending) {
       try {
         const desc = await describe(item.url);
         if (!desc) continue;
-        const existingQualities = Object.values(store.descriptions).flatMap((d) => d.qualities);
-        const verdict = await decide(desc, existingQualities);
-        store.descriptions[item.id] = {
-          ...desc,
-          id: item.id,
-          worth: verdict?.worth ?? false,
-          score: verdict?.score ?? 0,
-          reason: verdict?.reason ?? "",
-          used: false,
-          ts: Date.now(),
-        };
+        store.descriptions[item.id] = { ...desc, id: item.id, used: false, ts: Date.now() };
         described++;
       } catch {
         // skip this image on failure
       }
     }
-    if (described) await persist();
+    if (described) persist();
 
     // 2. dream from ONE coherent facet (never a blend), grounded by its real images
     const worthyTotal = Object.values(store.descriptions).filter((d) => d.worth && !d.used).length;

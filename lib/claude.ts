@@ -41,13 +41,18 @@ export interface Description {
   text: string; // one-paragraph aesthetic read
   qualities: string[]; // distinctive tags: palette, mood, composition, style
   distinctiveness: number; // 0..1 — how specific/non-generic the taste signal is
+  worth: boolean; // worth generating new images from? (the decider, merged in)
+  score: number; // 0..1 confidence
+  reason: string; // short why
 }
 
-// describe a kept image's aesthetic qualities from its (display-size) url
+// describe a kept image's aesthetic AND judge if it's worth generating from —
+// one call (merged describe+decide → halves per-image cost). The worth judgment
+// is made from the image alone; cross-image redundancy is handled by facet clustering.
 export async function describe(imageUrl: string): Promise<Description | null> {
   const res = await getClient().messages.create({
     model: DESCRIBE_MODEL,
-    max_tokens: 500,
+    max_tokens: 320,
     messages: [
       {
         role: "user",
@@ -55,10 +60,9 @@ export async function describe(imageUrl: string): Promise<Description | null> {
           imageBlock(imageUrl),
           {
             type: "text",
-            text: `You read images for their aesthetic. Describe THIS image's taste signal — palette, light, mood, composition, texture, subject treatment, era/style. Focus on what makes it feel the way it does, not literal contents.
+            text: `You read images for their aesthetic. Describe THIS image's taste signal — palette, light, mood, composition, texture, subject treatment, era/style. Focus on what makes it feel the way it does, not literal contents. Then judge whether it's a distinctive enough aesthetic to generate NEW images from (reject generic/stocky/low-signal images).
 Reply ONLY with JSON:
-{"text":"one vivid sentence on its aesthetic","qualities":["4-8 specific descriptors"],"distinctiveness":0.0-1.0}
-distinctiveness = how specific/unusual the taste is (generic stock = low, singular vision = high).`,
+{"text":"one vivid sentence","qualities":["4-8 specific descriptors"],"distinctiveness":0.0-1.0,"worth":true|false,"score":0.0-1.0,"reason":"short"}`,
           },
         ],
       },
@@ -94,41 +98,6 @@ Reply ONLY with JSON: {"label":"...","queries":["...","...","..."]}`,
   });
   const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("");
   return parseJson<{ label: string; queries: string[] }>(text);
-}
-
-export interface Verdict {
-  worth: boolean;
-  score: number; // 0..1
-  reason: string;
-}
-
-// the decider: is this description worth generating from? rejects generic /
-// low-signal / redundant taste so we don't waste generations on slop.
-export async function decide(
-  desc: Description,
-  existingQualities: string[]
-): Promise<Verdict | null> {
-  const res = await getClient().messages.create({
-    model: DECIDE_MODEL,
-    max_tokens: 300,
-    messages: [
-      {
-        role: "user",
-        content: `You are a strict taste curator deciding whether an image's aesthetic is worth generating NEW images from.
-
-Candidate description: ${desc.text}
-Qualities: ${desc.qualities.join(", ")}
-Self-rated distinctiveness: ${desc.distinctiveness}
-
-Aesthetics we've already mined a lot: ${existingQualities.slice(0, 30).join(", ") || "none yet"}
-
-Reject if: generic/stocky, weak taste signal, or near-duplicate of what we've already mined. Approve only genuinely distinctive, generative aesthetics.
-Reply ONLY with JSON: {"worth":true|false,"score":0.0-1.0,"reason":"short"}`,
-      },
-    ],
-  });
-  const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-  return parseJson<Verdict>(text);
 }
 
 export interface Prefs {

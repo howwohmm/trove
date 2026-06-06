@@ -168,5 +168,5 @@ export function scheduleFacets(): void {
     ) {
       await computeFacets();
     }
-  })();
+  })().catch(() => {});
 }
