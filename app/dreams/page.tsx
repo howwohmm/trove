@@ -35,9 +35,9 @@ export default function DreamsPage() {
     return (
       <p className="hint">
         the taste brain is on, but no image generator is set. add{" "}
-        <code>FAL_KEY</code> (best output) or <code>TOGETHER_API_KEY</code> (free)
-        to <code>.env.local</code> and restart. then keep a few distinctive
-        images and dreams appear here.
+        <code>OPENROUTER_API_KEY</code> (recommended — nano banana 2) or{" "}
+        <code>FAL_KEY</code> to <code>.env.local</code> and restart. then keep a
+        few distinctive images and dreams appear here.
       </p>
     );
 
