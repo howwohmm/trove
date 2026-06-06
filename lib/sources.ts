@@ -58,28 +58,46 @@ interface UnsplashPhoto {
   links: { html: string };
 }
 
-async function fetchUnsplashPool(key: string): Promise<Candidate[]> {
-  // pull a batch of random editorial photos
+// growing in-memory pool of unsplash candidates. demo tier is 50 req/hr, so we
+// cache aggressively and only call the api when we're low on UNSEEN photos.
+let unsplashCache: Candidate[] = [];
+
+async function topUpUnsplash(key: string): Promise<void> {
   try {
     const res = await fetch(
       `https://api.unsplash.com/photos/random?count=30&orientation=portrait&client_id=${key}`,
       { cache: "no-store" }
     );
-    if (!res.ok) return [];
+    if (!res.ok) return;
     const photos = (await res.json()) as UnsplashPhoto[];
-    return photos.map((ph) => ({
-      id: `unsplash-${ph.id}`,
-      url: ph.urls.regular,
-      downloadUrl: ph.urls.full,
-      width: ph.width,
-      height: ph.height,
-      author: ph.user?.name,
-      link: ph.links?.html,
-      source: "unsplash" as const,
-    }));
+    const have = new Set(unsplashCache.map((c) => c.id));
+    for (const ph of photos) {
+      const id = `unsplash-${ph.id}`;
+      if (have.has(id)) continue;
+      unsplashCache.push({
+        id,
+        url: ph.urls.regular,
+        downloadUrl: ph.urls.full,
+        width: ph.width,
+        height: ph.height,
+        author: ph.user?.name,
+        link: ph.links?.html,
+        source: "unsplash",
+      });
+    }
   } catch {
-    return [];
+    // keep whatever we have on failure
   }
+}
+
+// ensure ~40 unseen photos are cached, topping up at most a few times per call
+async function ensureUnsplash(key: string, seen: Set<string>): Promise<Candidate[]> {
+  let tries = 0;
+  while (unsplashCache.filter((c) => !seen.has(c.id)).length < 40 && tries < 2) {
+    await topUpUnsplash(key);
+    tries++;
+  }
+  return unsplashCache;
 }
 
 export function shuffle<T>(arr: T[]): T[] {
@@ -97,7 +115,7 @@ export async function getFreshPool(
   limit = 200
 ): Promise<Candidate[]> {
   const key = process.env.UNSPLASH_ACCESS_KEY;
-  const pool = key ? await fetchUnsplashPool(key) : await fetchPicsumPool();
+  const pool = key ? await ensureUnsplash(key, seen) : await fetchPicsumPool();
   return pool.filter((c) => !seen.has(c.id)).slice(0, limit);
 }
 
