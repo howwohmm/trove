@@ -100,6 +100,120 @@ main {
   letter-spacing: 0.04em;
   margin: 0 0 1rem;
 }
+
+/* facet filter chips */
+.chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 420px;
+  margin-bottom: 1rem;
+}
+.chip {
+  font-family: inherit;
+  font-weight: 300;
+  font-size: 0.8rem;
+  color: var(--dim);
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.32rem 0.85rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.chip:hover {
+  color: var(--text);
+}
+.chip--on {
+  color: #1a1a1a;
+  background: var(--accent, #c9a8d4);
+  border-color: var(--accent, #c9a8d4);
+}
+
+/* tune page */
+.tune {
+  padding: 2rem 0 5rem;
+  max-width: 560px;
+}
+.tune h2 {
+  font-weight: 300;
+  font-size: 1.15rem;
+  margin: 2rem 0 0.4rem;
+}
+.tune p.sub {
+  color: var(--faint);
+  font-size: 0.85rem;
+  margin-bottom: 0.8rem;
+}
+.tune textarea {
+  width: 100%;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: inherit;
+  font-weight: 300;
+  font-size: 0.95rem;
+  padding: 0.9rem 1rem;
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.6;
+}
+.tune textarea:focus {
+  outline: none;
+  border-color: var(--accent, #c9a8d4);
+}
+.tune .save {
+  margin-top: 1.4rem;
+  font-family: inherit;
+  font-weight: 300;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  background: var(--accent, #c9a8d4);
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.4rem;
+  cursor: pointer;
+}
+.tune .saved {
+  color: var(--keep);
+  font-size: 0.82rem;
+  margin-left: 0.9rem;
+}
+.tune .facet-dreams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+/* dream prompt edit panel */
+.dream-edit {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.2rem;
+}
+.dream-edit textarea {
+  width: 100%;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-weight: 300;
+  font-size: 0.85rem;
+  padding: 0.7rem 0.8rem;
+  min-height: 90px;
+  line-height: 1.55;
+}
+.dream-edit .row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+}
 .deck {
   position: relative;
   width: min(86vw, 380px);

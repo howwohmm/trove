@@ -4,7 +4,7 @@
 
 import { promises as fs } from "fs";
 import path from "path";
-import { getLibrary } from "./store";
+import { getLibrary, getPrefs } from "./store";
 import {
   hasClaude,
   describe,
@@ -14,6 +14,7 @@ import {
   type Description,
 } from "./claude";
 import { generateImage, activeProvider } from "./generate";
+import { getFacets } from "./facets";
 
 const FILE = path.join(process.cwd(), "data", "dreams.json");
 
@@ -103,7 +104,7 @@ export async function evolveDream(id: string): Promise<void> {
     const store = await load();
     const parent = store.dreams.find((x) => x.id === id);
     if (!parent) return;
-    const childPrompt = await mutatePrompt(parent.prompt);
+    const childPrompt = await mutatePrompt(parent.prompt, await getPrefs());
     if (!childPrompt) return;
     const childId = dreamId(store);
     let file: string;
@@ -129,6 +130,72 @@ export async function evolveDream(id: string): Promise<void> {
 
 export function scheduleEvolve(id: string): void {
   void evolveDream(id).catch(() => {});
+}
+
+// generate a dream from one chosen facet (per-facet control)
+export async function dreamFromFacet(facetId: string): Promise<TickResult> {
+  const base = { described: 0, worthyUnused: 0, generated: false };
+  if (!hasClaude() || activeProvider() === "none") return { ...base, skipped: "not configured" };
+  return exclusive(async () => {
+    const facet = (await getFacets()).find((f) => f.id === facetId);
+    if (!facet) return { ...base, skipped: "no such facet" };
+    const pseudo: Description = {
+      text: `the aesthetic: ${facet.label}`,
+      qualities: facet.queries,
+      distinctiveness: 1,
+    };
+    const prompt = await synthesizePrompt([pseudo], await getPrefs());
+    if (!prompt) return base;
+    const store = await load();
+    const id = dreamId(store);
+    let file: string;
+    try {
+      file = await generateImage(id, prompt);
+    } catch {
+      return base;
+    }
+    store.dreams.unshift({
+      id,
+      prompt,
+      sourceIds: facet.memberIds.slice(0, 3),
+      file,
+      provider: activeProvider(),
+      ts: Date.now(),
+      status: "pending",
+      generation: 0,
+    });
+    await persist();
+    return { ...base, generated: true, prompt, provider: activeProvider() };
+  });
+}
+
+// regenerate from a user-edited prompt (direct control, no claude)
+export async function regenerateDream(prompt: string): Promise<TickResult> {
+  const base = { described: 0, worthyUnused: 0, generated: false };
+  if (activeProvider() === "none") return { ...base, skipped: "no image provider" };
+  if (!prompt?.trim()) return { ...base, skipped: "empty prompt" };
+  return exclusive(async () => {
+    const store = await load();
+    const id = dreamId(store);
+    let file: string;
+    try {
+      file = await generateImage(id, prompt);
+    } catch {
+      return base;
+    }
+    store.dreams.unshift({
+      id,
+      prompt,
+      sourceIds: [],
+      file,
+      provider: activeProvider(),
+      ts: Date.now(),
+      status: "pending",
+      generation: 0,
+    });
+    await persist();
+    return { ...base, generated: true, prompt, provider: activeProvider() };
+  });
 }
 
 // next dream id from the highest existing number (collision-proof under the queue)
@@ -189,7 +256,7 @@ export async function dreamTick(): Promise<TickResult> {
     }
 
     const batch = worthyUnused.slice(0, 6);
-    const prompt = await synthesizePrompt(batch);
+    const prompt = await synthesizePrompt(batch, await getPrefs());
     if (!prompt) return { described, worthyUnused: worthyUnused.length, generated: false };
 
     const id = dreamId(store);

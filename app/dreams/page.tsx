@@ -13,6 +13,9 @@ interface DreamData {
 
 export default function DreamsPage() {
   const [data, setData] = useState<DreamData | null>(null);
+  const [editing, setEditing] = useState<Dream | null>(null);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(() => {
     fetch("/api/dreams")
@@ -73,18 +76,59 @@ export default function DreamsPage() {
         ) : (
           <div className="grid">
             {kept.map((d) => (
-              <a
+              <button
                 key={d.id}
                 className="tile"
-                href={`/api/gen/${d.file}`}
-                target="_blank"
-                rel="noreferrer"
-                title={d.prompt}
+                title="tap to edit + regenerate"
+                onClick={() => {
+                  setEditing(d);
+                  setDraft(d.prompt);
+                }}
+                style={{ padding: 0, border: "none", cursor: "pointer", background: "none" }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/api/gen/${d.file}`} alt={d.prompt} loading="lazy" />
-              </a>
+              </button>
             ))}
+          </div>
+        )}
+
+        {editing && (
+          <div className="dream-edit">
+            <p className="lib-head">edit the prompt + regenerate (gen {editing.generation ?? 0})</p>
+            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <div className="row">
+              <button
+                className="save"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await fetch("/api/dreams/regenerate", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ prompt: draft }),
+                    });
+                    setEditing(null);
+                    refresh();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? "regenerating…" : "regenerate"}
+              </button>
+              <a className="nav" href={`/api/gen/${editing.file}`} target="_blank" rel="noreferrer">
+                open original
+              </a>
+              <button
+                className="chip"
+                onClick={() => setEditing(null)}
+                style={{ marginLeft: "auto" }}
+              >
+                close
+              </button>
+            </div>
           </div>
         )}
       </div>

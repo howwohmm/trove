@@ -28,6 +28,8 @@ export function SwipeDeck() {
   const [seenCount, setSeenCount] = useState(0);
   const [ranked, setRanked] = useState(false);
   const [tasteCount, setTasteCount] = useState(0);
+  const [facets, setFacets] = useState<{ id: string; label: string }[]>([]);
+  const [facetId, setFacetId] = useState<string | null>(null);
   const fetching = useRef(false);
 
   const x = useMotionValue(0);
@@ -39,7 +41,8 @@ export function SwipeDeck() {
     if (fetching.current) return;
     fetching.current = true;
     try {
-      const res = await fetch("/api/candidates?n=20");
+      const url = `/api/candidates?n=20${facetId ? `&facet=${facetId}` : ""}`;
+      const res = await fetch(url);
       const data = (await res.json()) as {
         candidates: Candidate[];
         ranked: boolean;
@@ -56,11 +59,26 @@ export function SwipeDeck() {
       fetching.current = false;
       setLoading(false);
     }
+  }, [facetId]);
+
+  // load facets for the filter chips
+  useEffect(() => {
+    fetch("/api/facets")
+      .then((r) => r.json())
+      .then((d: { facets: { id: string; label: string }[] }) => setFacets(d.facets))
+      .catch(() => {});
   }, []);
 
+  // (re)fill when facet changes
   useEffect(() => {
     fetchMore();
   }, [fetchMore]);
+
+  const selectFacet = useCallback((id: string | null) => {
+    setFacetId(id);
+    setDeck([]); // clear so the new facet's feed loads fresh
+    x.set(0);
+  }, [x]);
 
   // keep the next few images decoded and ahead-of-cursor
   useEffect(() => {
@@ -121,6 +139,25 @@ export function SwipeDeck() {
 
   return (
     <div className="deck-wrap">
+      {facets.length > 0 && (
+        <div className="chips">
+          <button
+            className={`chip ${!facetId ? "chip--on" : ""}`}
+            onClick={() => selectFacet(null)}
+          >
+            all
+          </button>
+          {facets.map((f) => (
+            <button
+              key={f.id}
+              className={`chip ${facetId === f.id ? "chip--on" : ""}`}
+              onClick={() => selectFacet(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="taste-state">
         {ranked ? (
           <>taste · tuned to {tasteCount} keeps</>

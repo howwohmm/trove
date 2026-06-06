@@ -28,6 +28,7 @@ export default function RootLayout({
             <Link href="/">swipe</Link>
             <Link href="/library">library</Link>
             <Link href="/dreams">dreams</Link>
+            <Link href="/tune">tune</Link>
           </nav>
         </header>
         <main>{children}</main>

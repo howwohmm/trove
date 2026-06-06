@@ -131,9 +131,26 @@ Reply ONLY with JSON: {"worth":true|false,"score":0.0-1.0,"reason":"short"}`,
   return parseJson<Verdict>(text);
 }
 
+export interface Prefs {
+  steer: string;
+  avoid: string;
+}
+
+// user steering appended to any generation prompt
+function prefsClause(prefs?: Prefs): string {
+  if (!prefs) return "";
+  const parts: string[] = [];
+  if (prefs.steer?.trim()) parts.push(`Direction to honor strongly: ${prefs.steer.trim()}.`);
+  if (prefs.avoid?.trim()) parts.push(`Never include: ${prefs.avoid.trim()}.`);
+  return parts.length ? `\n${parts.join(" ")}` : "";
+}
+
 // synthesize a fresh, original image-gen prompt that BLENDS the worthy
 // aesthetics — not a copy of any single image.
-export async function synthesizePrompt(descs: Description[]): Promise<string | null> {
+export async function synthesizePrompt(
+  descs: Description[],
+  prefs?: Prefs
+): Promise<string | null> {
   const blob = descs
     .map((d, i) => `${i + 1}. ${d.text} [${d.qualities.join(", ")}]`)
     .join("\n");
@@ -146,7 +163,7 @@ export async function synthesizePrompt(descs: Description[]): Promise<string | n
         content: `These describe the aesthetic taste of one person, learned from images they kept:
 ${blob}
 
-Write ONE original text-to-image prompt for a NEW image that embodies the THROUGHLINE of this taste — the shared palette, mood, light and sensibility — without copying any single image. It should feel inevitable to this person, fresh, and specific. Rich visual language, no camera-brand jargon, no "in the style of <artist>".
+Write ONE original text-to-image prompt for a NEW image that embodies the THROUGHLINE of this taste — the shared palette, mood, light and sensibility — without copying any single image. It should feel inevitable to this person, fresh, and specific. Rich visual language, no camera-brand jargon, no "in the style of <artist>".${prefsClause(prefs)}
 Reply ONLY with JSON: {"prompt":"the prompt"}`,
       },
     ],
@@ -157,7 +174,7 @@ Reply ONLY with JSON: {"prompt":"the prompt"}`,
 
 // the loved one bred: mutate a prompt that produced an image the user KEPT into
 // a fresh variation — keep what worked, push into new territory in the same vein.
-export async function mutatePrompt(parent: string): Promise<string | null> {
+export async function mutatePrompt(parent: string, prefs?: Prefs): Promise<string | null> {
   const res = await getClient().messages.create({
     model: SYNTH_MODEL,
     max_tokens: 400,
@@ -167,7 +184,7 @@ export async function mutatePrompt(parent: string): Promise<string | null> {
         content: `This text-to-image prompt produced an image the user LOVED:
 "${parent}"
 
-Write ONE new prompt that evolves it: preserve the palette, mood and sensibility that clearly worked, but change the subject, scene or composition so it feels fresh — a sibling, not a copy. Same soul, new body. Rich visual language, no "in the style of <artist>", no camera-brand jargon.
+Write ONE new prompt that evolves it: preserve the palette, mood and sensibility that clearly worked, but change the subject, scene or composition so it feels fresh — a sibling, not a copy. Same soul, new body. Rich visual language, no "in the style of <artist>", no camera-brand jargon.${prefsClause(prefs)}
 Reply ONLY with JSON: {"prompt":"the evolved prompt"}`,
       },
     ],
