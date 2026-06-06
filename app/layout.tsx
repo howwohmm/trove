@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Geist } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
-  weight: ["200", "300", "400"],
 });
 
 export const metadata: Metadata = {
@@ -18,7 +17,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${manrope.variable} h-full`}>
+    <html lang="en" className={`${geist.variable} h-full`}>
       <body className="min-h-full">
         <header className="topbar">
           <Link href="/" className="brand">
