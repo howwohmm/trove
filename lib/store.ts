@@ -4,12 +4,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { State, SwipeRecord, LibraryItem } from "./types";
+import { runningMean } from "./taste";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 export const LIBRARY_DIR = path.join(process.cwd(), "library");
 
-const EMPTY: State = { taste: null, swipes: [], library: [] };
+const EMPTY: State = { taste: null, tasteCount: 0, swipes: [], library: [] };
 
 async function ensureDirs() {
   await fs.mkdir(DATA_DIR, { recursive: true });
@@ -55,6 +56,14 @@ export async function addToLibrary(item: LibraryItem): Promise<void> {
 export async function getLibrary(): Promise<LibraryItem[]> {
   const { library } = await readState();
   return library;
+}
+
+// fold a liked image's embedding into the taste vector (running mean)
+export async function updateTaste(vec: number[]): Promise<void> {
+  const state = await readState();
+  state.taste = runningMean(state.taste, state.tasteCount, vec);
+  state.tasteCount += 1;
+  await writeState(state);
 }
 
 // download a remote image into /library and return the saved filename

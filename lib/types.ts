@@ -34,7 +34,8 @@ export interface LibraryItem {
 }
 
 export interface State {
-  taste: number[] | null; // taste vector — populated in phase 2 (embeddings)
+  taste: number[] | null; // running-mean taste vector (unit-normalized)
+  tasteCount: number; // number of likes folded into the taste vector
   swipes: SwipeRecord[];
   library: LibraryItem[];
 }

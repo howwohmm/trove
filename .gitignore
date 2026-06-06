@@ -39,6 +39,8 @@ yarn-error.log*
 # trove — personal data (your swipes + curated images stay local)
 /data
 /library
+# downloaded CLIP model weights
+/.models
 
 # typescript
 *.tsbuildinfo

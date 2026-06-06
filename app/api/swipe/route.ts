@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { recordSwipe, addToLibrary, saveImageFile } from "@/lib/store";
+import { recordSwipe, addToLibrary, saveImageFile, updateTaste } from "@/lib/store";
+import { getEmbedding } from "@/lib/embeddings";
 import type { Candidate, SwipeDir } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,8 @@ export async function POST(req: Request) {
 
   await recordSwipe({ id: candidate.id, dir, ts: Date.now() });
 
-  // on like: download the full image into /library so it's on disk for projects
+  // on like: download the full image into /library so it's on disk for projects,
+  // then fold its embedding into the taste vector (this is "the algo")
   if (dir === "like") {
     try {
       const file = await saveImageFile(candidate.id, candidate.downloadUrl);
@@ -37,6 +39,12 @@ export async function POST(req: Request) {
         source: candidate.source,
         ts: Date.now(),
       });
+      try {
+        const vec = await getEmbedding(candidate.id, candidate.url);
+        await updateTaste(vec);
+      } catch {
+        // embedding/model may still be warming up — the keep is already saved
+      }
     } catch (e) {
       // swipe is recorded; surface download failure but don't 500 the swipe
       return NextResponse.json(

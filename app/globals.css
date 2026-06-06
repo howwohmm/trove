@@ -92,7 +92,13 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 2.2rem;
+  padding-top: 1.4rem;
+}
+.taste-state {
+  font-size: 0.78rem;
+  color: var(--faint);
+  letter-spacing: 0.04em;
+  margin: 0 0 1rem;
 }
 .deck {
   position: relative;

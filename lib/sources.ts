@@ -82,8 +82,7 @@ async function fetchUnsplashPool(key: string): Promise<Candidate[]> {
   }
 }
 
-// stable shuffle keyed by a session-stable seed so the deck order is consistent
-function shuffle<T>(arr: T[]): T[] {
+export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -92,14 +91,21 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-// return up to n unseen candidates. phase 2 will rank by cosine to taste vector;
-// for now: shuffled pool minus already-seen.
+// the full unseen pool, in source order — ranking happens on top of this.
+export async function getFreshPool(
+  seen: Set<string>,
+  limit = 200
+): Promise<Candidate[]> {
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  const pool = key ? await fetchUnsplashPool(key) : await fetchPicsumPool();
+  return pool.filter((c) => !seen.has(c.id)).slice(0, limit);
+}
+
+// cold-start helper: up to n unseen candidates, shuffled.
 export async function getCandidates(
   n: number,
   seen: Set<string>
 ): Promise<Candidate[]> {
-  const key = process.env.UNSPLASH_ACCESS_KEY;
-  const pool = key ? await fetchUnsplashPool(key) : await fetchPicsumPool();
-  const fresh = pool.filter((c) => !seen.has(c.id));
+  const fresh = await getFreshPool(seen, 500);
   return shuffle(fresh).slice(0, n);
 }

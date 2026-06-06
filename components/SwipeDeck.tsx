@@ -26,6 +26,8 @@ export function SwipeDeck() {
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(0);
   const [seenCount, setSeenCount] = useState(0);
+  const [ranked, setRanked] = useState(false);
+  const [tasteCount, setTasteCount] = useState(0);
   const fetching = useRef(false);
 
   const x = useMotionValue(0);
@@ -38,7 +40,13 @@ export function SwipeDeck() {
     fetching.current = true;
     try {
       const res = await fetch("/api/candidates?n=20");
-      const data = (await res.json()) as { candidates: Candidate[] };
+      const data = (await res.json()) as {
+        candidates: Candidate[];
+        ranked: boolean;
+        tasteCount: number;
+      };
+      setRanked(data.ranked);
+      setTasteCount(data.tasteCount);
       setDeck((prev) => {
         const have = new Set(prev.map((c) => c.id));
         const merged = [...prev, ...data.candidates.filter((c) => !have.has(c.id))];
@@ -113,6 +121,15 @@ export function SwipeDeck() {
 
   return (
     <div className="deck-wrap">
+      <p className="taste-state">
+        {ranked ? (
+          <>taste · tuned to {tasteCount} keeps</>
+        ) : tasteCount > 0 ? (
+          <>taste · warming up ({tasteCount} keeps)</>
+        ) : (
+          <>taste · calibrating — keep a few to begin</>
+        )}
+      </p>
       <div className="deck">
         {loading && deck.length === 0 && <p className="hint">gathering images…</p>}
 
