@@ -1,89 +1,111 @@
 # trove
 
-a personal, single-user tool for curating tasteful images. swipe through a stream
-of photos — keep the ones you like and they're downloaded to a local folder,
-ready to pull into your projects. think tinder-for-images, but the library is
-*yours* and lives on disk.
+a personal, single-user tool for curating tasteful images — and generating new
+ones in your own taste. swipe through photos; the ones you keep land on disk,
+train a recommendation engine that learns your eye, and seed an AI that dreams up
+fresh images that look like *you*.
 
-not a product. no accounts, no cloud, no tracking. just you and your taste.
+not a product. no accounts, no cloud, no tracking. local-first, OSS. just you and
+your taste.
 
-## how it works
+> **status: day-one prototype.** The rec engine and generation loop work and are
+> genuinely good. The JSON persistence layer has known concurrency/atomicity
+> issues — see [Known issues](#known-issues). Don't trust it with data you can't
+> lose yet.
 
-- **swipe right (or →, or ♥)** → image is saved to `/library` on disk + indexed
-- **swipe left (or ←, or ✕)** → skipped, never shown again
-- the **library** page is a grid of everything you've kept
-- all state is a single `data/state.json`; images are real files in `/library`
+## what it does
+
+- **swipe** (`/`) — Tinder-style deck. Right = keep (downloads to `/library`,
+  trains taste, can seed a dream). Left = skip. Facet chips filter the feed by
+  one of your taste clusters.
+- **library** (`/library`) — full-bleed Pinterest masonry of everything you kept.
+- **dreams** (`/dreams`) — AI images generated in your taste. Swipe them too:
+  keep breeds a mutated child (genetic prompt evolution); pass kills the lineage.
+- **tune** (`/tune`) — steer generation (a direction + an avoid-list), and
+  "dream from a facet" on demand.
+- **status** (`/status`) — live dashboard: API rate/credits, taste keeps,
+  keep-rate, facets, corpus size, dreams. Refreshes every 8s.
+
+## how the recommendation works
+
+(full design: [`specs/recommendation-engine.html`](specs/recommendation-engine.html))
+
+1. **Embeddings** — every image is embedded with CLIP in-process via
+   transformers.js (no GPU, no API).
+2. **Facets** — your kept images are k-means clustered into taste facets; Claude
+   names each and gives search keywords. Facets = categories = the multi-interest
+   model. (Avoids the "muddy average" failure of a single taste vector.)
+3. **Retrieval** — facet keywords drive Unsplash search (not random). Every
+   fetched image is persisted to a growing local **corpus**, so the rankable pool
+   grows across sessions and the API rate limit stops mattering.
+4. **Ranking** — candidates scored by max cosine to any facet centroid (with
+   maturity shrinkage) minus a Rocchio dislike term, then **MMR** reranked for
+   diversity + near-dup culling, with ~25% exploration woven in.
+
+## how dreams work
+
+`keep → Claude describes → Claude decides if worth generating → [facet accrues
+worthy images] → Claude writes a concrete prompt → image model generates,
+conditioned on your real kept images as visual references → /dreams`
+
+Each dream comes from **one coherent facet** and is **grounded in your actual
+images** (the image model sees them), so output matches your taste.
 
 ## run it
 
 ```bash
 npm install
-npm run dev
+npm run dev   # http://localhost:3000  (or http://<lan-ip>:3000 from your phone)
 ```
 
-Open http://localhost:3000. To swipe from your phone, run on your laptop and
-visit `http://<your-laptop-ip>:3000` on the same network — kept images land on
-the laptop where your projects live.
-
-## image source
-
-By default trove pulls from [Lorem Picsum](https://picsum.photos) (real curated
-photography, zero config). For better taste, add an
-[Unsplash](https://unsplash.com/developers) access key:
+### keys (`.env.local`, gitignored)
 
 ```bash
-echo "UNSPLASH_ACCESS_KEY=your_key" > .env.local
+UNSPLASH_ACCESS_KEY=...   # image source (free; without it, falls back to picsum)
+ANTHROPIC_API_KEY=...     # the taste brain (describe / decide / prompt-writing)
+OPENROUTER_API_KEY=...    # image generation (default model: Nano Banana 2)
 ```
 
-Since trove is personal and never republishes images, sourcing is low-risk —
-but if you ever make it public, respect each source's API terms.
-
-## taste algo (phase 2)
-
-Every keep is embedded with CLIP (in-process via transformers.js — no python, no
-api) and folded into a running taste vector. Candidates are then ranked by cosine
-similarity to your taste, with ~25% exploration mixed in so it keeps learning.
-First keep downloads the model (~90MB) once; after that it's instant. The deck
-shows whether taste is `calibrating`, `warming up`, or `tuned`.
-
-## dreams — generate images in your taste (phase 3)
-
-trove can also *generate* new images in your aesthetic:
-
-```
-keep → Claude describes the aesthetic → Claude DECIDES if it's worth generating
-     → [N worthy aesthetics accumulate] → Claude writes a fresh prompt
-     → image model generates → /dreams gallery
-```
-
-Needs two keys in `.env.local`:
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-...   # describe + decider + prompt synthesis
-FAL_KEY=...                    # best image output (fal.ai, pay-per-image)
-```
-
-**Image model** (premium, on fal.ai) — pick the look via `FAL_MODEL`:
-
-| `FAL_MODEL` | slug | character |
-| --- | --- | --- |
-| _(default)_ | `fal-ai/flux-pro/v1.1-ultra` | cinematic, photoreal, most "finished" |
-| recraft | `fal-ai/recraft/v3/text-to-image` | art-directed, design, illustration |
-| ideogram | `fal-ai/ideogram/v3` | editorial, typography |
-
-Cheap fallback: set `TOGETHER_API_KEY` instead for Together FLUX.1-schnell
-(~$0.003/image, lower quality). Tune how readily it generates with
-`TROVE_GEN_THRESHOLD` (default 3 worthy descriptions).
-
-## roadmap
-
-- collections / tags, undo last swipe
-- swipe the dreams too → kept dreams reinforce taste; their prompts get reused/mutated
-- more + more varied sources (the decider rewards variety)
+Image model is swappable via `OPENROUTER_IMAGE_MODEL` (e.g.
+`google/gemini-3-pro-image`, `bytedance/seedream-4.5`). `FAL_KEY` /
+`TOGETHER_API_KEY` are alternative providers. Generation tuning:
+`TROVE_GEN_THRESHOLD` (worthy images per facet before it dreams, default 2).
 
 ## stack
 
-Next.js · React · [motion](https://motion.dev) for the swipe gesture · plain JSON
-+ filesystem for storage. No database, no auth — deliberately.
+Next.js 16 (App Router) · TypeScript · `motion` (swipe) · transformers.js (CLIP) ·
+Claude (Anthropic) · OpenRouter/Nano Banana · Unsplash · JSON-file storage. No DB,
+no auth — deliberately local-first.
+
+## data (all gitignored, local-only)
+
+`data/state.json` (swipes, library index, taste, prefs) · `data/embeddings.json`
+(CLIP vectors) · `data/facets.json` · `data/corpus.json` · `data/dreams.json` ·
+`/library` (kept image files) · `/generated` (AI images) · `/.models` (CLIP weights)
+
+## known issues
+
+From an adversarial code review ([`specs/code-review.html`](specs/code-review.html)):
+
+- **Data loss under fast swiping** — `state.json` mutations aren't serialized;
+  concurrent requests can clobber each other. *(fix: single mutex + one combined
+  write per keep)*
+- **Non-atomic writes** — a crash mid-write can corrupt a store. *(fix:
+  temp-file + rename)*
+- **SSRF** — server fetches URLs from the request body unvalidated. *(fix:
+  allowlist hosts / look up by id server-side)*
+- **Taste pollution** — kept dreams fold into the real taste vector.
+- k-means facet ids are non-deterministic across recomputes; some swallowed
+  errors; full-corpus rescoring per request.
+
+These are the next session's work. The product logic is solid; the storage layer
+needs hardening before it's trustworthy.
+
+## roadmap
+
+- harden persistence (mutex + atomic writes + atomic per-keep transaction)
+- recency decay on taste; separate "dream taste" from retrieval taste
+- stable facet ids; keep-rate exploit-vs-explore proof in the UI
+- undo last swipe; collections
 
 MIT.

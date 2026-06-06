@@ -58,7 +58,7 @@ async function fetchToFile(id: string, url: string): Promise<string> {
 
 // "data:image/png;base64,...." -> save with the right extension
 async function saveDataUrl(id: string, dataUrl: string): Promise<string> {
-  const m = dataUrl.match(/^data:image\/(\w+);base64,(.*)$/s);
+  const m = dataUrl.match(/^data:image\/(\w+);base64,([\s\S]*)$/);
   if (!m) throw new Error("not a base64 image data url");
   const ext = m[1] === "jpeg" ? "jpg" : m[1];
   return save(id, Buffer.from(m[2], "base64").buffer, ext);
