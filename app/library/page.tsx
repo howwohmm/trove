@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { LibraryItem } from "@/lib/types";
+import { optimized } from "@/lib/imgix";
 
 export default function LibraryPage() {
   const [items, setItems] = useState<LibraryItem[] | null>(null);
@@ -38,9 +39,9 @@ export default function LibraryPage() {
             rel="noreferrer"
             title={it.author ? `${it.author} · ${it.source}` : it.source}
           >
-            {/* grid shows the fast CDN-sized image; href opens the full-res local file */}
+            {/* imgix-optimized, column-sized image; href opens the full-res local file */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={it.url || `/api/img/${it.file}`} alt="" loading="lazy" />
+            <img src={it.url ? optimized(it.url, 360) : `/api/img/${it.file}`} alt="" loading="lazy" />
           </a>
         ))}
       </div>

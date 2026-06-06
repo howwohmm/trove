@@ -4,6 +4,7 @@ import { addToCorpus, getCorpus } from "@/lib/corpus";
 import { seenIds, readState } from "@/lib/store";
 import { cachedEmbeddings, warmEmbeddings } from "@/lib/embeddings";
 import { getFacets } from "@/lib/facets";
+import { tasteKeywords } from "@/lib/keywords";
 import { tasteScore, dislikeCentroid, mmrRerank, type Scored } from "@/lib/rec";
 import type { Candidate } from "@/lib/types";
 
@@ -36,12 +37,18 @@ export async function GET(req: Request) {
   const facets = await getFacets();
   const activeFacet = facetId ? facets.find((f) => f.id === facetId) : undefined;
 
-  // retrieval: query the source for taste-relevant images, persist to the corpus
-  const queries = activeFacet
-    ? activeFacet.queries
-    : facets.length
-      ? [...new Set(facets.flatMap((f) => f.queries))].slice(0, 6)
-      : undefined;
+  // retrieval: query the source for taste-relevant images, persist to the corpus.
+  // blend Claude facet keywords with zero-shot CLIP taste keywords (free, works
+  // even before facets exist).
+  let queries: string[] | undefined;
+  if (activeFacet) {
+    queries = activeFacet.queries;
+  } else {
+    const kw = await tasteKeywords(state.taste, 4);
+    const facetQ = facets.flatMap((f) => f.queries);
+    const blended = [...new Set([...facetQ, ...kw])];
+    queries = blended.length ? blended.slice(0, 8) : undefined;
+  }
   const fresh = await getFreshPool(seen, 100, queries ? { queries } : undefined);
   await addToCorpus(fresh);
 
