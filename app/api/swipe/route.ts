@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { recordSwipe, addToLibrary, saveImageFile, updateTaste } from "@/lib/store";
 import { getEmbedding } from "@/lib/embeddings";
 import { scheduleDream } from "@/lib/dreams";
+import { scheduleFacets } from "@/lib/facets";
 import type { Candidate, SwipeDir } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
         url: candidate.url,
         author: candidate.author,
         link: candidate.link,
+        tags: candidate.tags,
         source: candidate.source,
         ts: Date.now(),
       });
@@ -46,7 +48,8 @@ export async function POST(req: Request) {
       } catch {
         // embedding/model may still be warming up — the keep is already saved
       }
-      // kick the dream pipeline in the background (describe → decide → generate)
+      // background: refresh taste facets + run the dream pipeline
+      scheduleFacets();
       scheduleDream();
     } catch (e) {
       // swipe is recorded; surface download failure but don't 500 the swipe

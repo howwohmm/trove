@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>trove — recommendation engine spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#262626;--bg-soft:#2d2d2d;--line:#3a3a3a;--text:#e6e3df;--dim:#9a948c;--faint:#6b665f;--accent:#c9a8d4;--good:#8fb89a;--warn:#cbb583;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Manrope',system-ui,sans-serif;font-weight:300;line-height:1.75;letter-spacing:.01em;-webkit-font-smoothing:antialiased;padding:8vh 7vw 16vh;max-width:880px;margin:0 auto}
+  ::selection{background:var(--accent);color:#1a1a1a}
+  h1{font-weight:200;font-size:clamp(2.2rem,5vw,3.2rem);letter-spacing:-.02em;line-height:1.05;margin-bottom:.4rem}
+  h2{font-weight:300;font-size:1.4rem;letter-spacing:-.01em;margin:4rem 0 1.2rem}
+  h2 .num{color:var(--faint);font-weight:200;margin-right:.6rem}
+  h3{font-weight:400;font-size:1rem;margin:2rem 0 .5rem}
+  p{color:var(--dim);margin-bottom:1.1rem}
+  p strong,li strong{color:var(--text);font-weight:400}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+  a:hover{border-color:var(--accent)}
+  .lede{font-size:1.15rem;color:var(--text);font-weight:200;line-height:1.6;max-width:64ch;margin-bottom:.6rem}
+  .meta{color:var(--faint);font-size:.85rem;margin-bottom:2.5rem}
+  hr{border:none;border-top:1px solid var(--line)}
+  ul{list-style:none;margin:0 0 1.2rem}
+  li{color:var(--dim);padding-left:1.4rem;position:relative;margin-bottom:.5rem}
+  li::before{content:'';position:absolute;left:0;top:.7em;width:6px;height:1px;background:var(--faint)}
+  table{width:100%;border-collapse:collapse;margin:1.4rem 0;font-size:.92rem}
+  th{text-align:left;font-weight:400;color:var(--faint);border-bottom:1px solid var(--line);padding:.6rem .7rem;font-size:.78rem;letter-spacing:.04em}
+  td{padding:.75rem .7rem;border-bottom:1px solid var(--line);color:var(--dim);vertical-align:top}
+  td strong{color:var(--text);font-weight:400}
+  pre{background:#1f1f1f;border:1px solid var(--line);border-radius:12px;padding:1.3rem 1.5rem;overflow-x:auto;margin:1.3rem 0;color:#cfcac3;line-height:1.6;font-size:.85rem;font-family:'SF Mono',ui-monospace,Menlo,monospace}
+  pre .c{color:var(--faint)}
+  pre .k{color:var(--accent)}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:.85em;color:var(--text)}
+  .callout{border-left:2px solid var(--accent);padding:.2rem 0 .2rem 1.3rem;margin:1.6rem 0;color:var(--text)}
+  .step{display:flex;gap:1rem;align-items:baseline;border-bottom:1px solid var(--line);padding:.9rem 0}
+  .step .n{flex:0 0 26px;color:var(--accent);font-weight:300}
+  .step .b{color:var(--dim)}
+  .step .b b{color:var(--text);font-weight:400}
+  footer{margin-top:5rem;padding-top:2rem;border-top:1px solid var(--line);color:var(--faint);font-size:.82rem}
+  .src{font-size:.82rem;color:var(--faint)}
+  .src a{color:var(--faint)}
+</style>
+</head>
+<body>
+  <h1>recommendation engine</h1>
+  <p class="lede">how trove should learn your visual taste and feed you more of it — synthesized from 4 parallel deep-research agents on photo recommendation systems.</p>
+  <p class="meta">spec · 2026-06-06 · single user · CLIP embeddings · Unsplash keyword corpus · Node/no-GPU</p>
+
+  <hr>
+
+  <h2><span class="num">00</span>why the current recs feel dead</h2>
+  <ul>
+    <li><strong>One averaged taste vector.</strong> Liking moody-dark + bright-minimal averages to grey mush that matches neither. Every source names this the #1 failure mode — Pinterest's PinnerSage exists specifically to fix it.</li>
+    <li><strong>We rank a random pool.</strong> Pinterest's magic isn't ranking — it's <strong>retrieval</strong> (fetching things already near your taste). We skip it.</li>
+    <li><strong>No diversity control</strong> → near-duplicate spam. <strong>No negatives</strong> → skips are ignored. <strong>No persistence</strong> → the pool resets every session.</li>
+  </ul>
+
+  <h2><span class="num">01</span>the architecture (4-agent consensus)</h2>
+  <p>The same skeleton as Pinterest, collapsed to one user, a keyword-only corpus, and plain vector math:</p>
+  <table>
+    <tr><th>piece</th><th>what</th><th>source</th></tr>
+    <tr><td><strong>Multi-prototype taste</strong></td><td>k-means liked embeddings → 3–6 cluster centroids. Score a candidate by <strong>MAX</strong> cosine to any centroid — never the mean.</td><td>PinnerSage, MIND, ComiRec</td></tr>
+    <tr><td><strong>Rocchio negatives</strong></td><td>maintain a dislike centroid from skips; <code>score = maxProtoCos − γ·dislikeCos</code>, γ≈0.3 (positives ~5× negatives).</td><td>Rocchio '71 / Stanford IR</td></tr>
+    <tr><td><strong>Shrinkage</strong></td><td>trust immature clusters less: weight each prototype by <code>w/(w+3)</code>.</td><td>cold-start regularization</td></tr>
+    <tr><td><strong>MMR diversity</strong></td><td>greedy rerank, <code>λ·Rel − (1−λ)·maxSimToPicked</code>, λ≈0.7. + cull near-dups (cosine&gt;0.93).</td><td>Carbonell &amp; Goldstein '98</td></tr>
+    <tr><td><strong>Persistent corpus</strong></td><td>save every fetched candidate's embedding to disk. Pool grows forever; ranking is offline &amp; free.</td><td>the key retrieval insight</td></tr>
+    <tr><td><strong>taste → text queries</strong></td><td>CLIP zero-shot vs a cached aesthetic vocabulary, per cluster, polished by Claude. Turns a vector into search keywords.</td><td>CLIP zero-shot / CLIP-Interrogator</td></tr>
+    <tr><td><strong>ε-greedy explore</strong></td><td>decaying 0.30→0.10 floor; explore picks woven in. Adjacent (medium-distance) queries fight the bubble.</td><td>bandits / serendipity</td></tr>
+    <tr><td><strong>recency decay</strong></td><td>exponential half-life (~90 days) on prototype weights; prune faded clusters.</td><td>time-aware CF</td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>The killer insight:</strong> the 50 req/hr limit only hurts if every session is cold-start. Persist every fetched image's CLIP embedding — image-byte fetches don't count against the limit, only JSON API calls do. Over days you accumulate thousands of rankable images and ranking becomes free & offline. <strong>Architect for accumulation from day one.</strong>
+  </div>
+
+  <h2><span class="num">02</span>the scoring function</h2>
+<pre><span class="c">// embeddings are L2-normalized → cosine = dot product</span>
+prototypes = weightedKMeans(likedEmbeddings, K=clamp(round(sqrt(N/2)),2,6))
+dislike    = mean(skippedEmbeddings)   <span class="c">// once ≥5 skips</span>
+
+score(x):
+  pos = max over prototypes of  cos(x, p.centroid) * (p.weight/(p.weight+3))   <span class="c">// shrinkage</span>
+  neg = dislike ? 0.3 * cos(x, dislike) : 0
+  return pos - neg
+
+feed = MMR(scored, λ=0.7)            <span class="c">// diversity rerank</span>
+       with ~20% ε-greedy explore picks woven in</pre>
+
+  <h2><span class="num">03</span>retrieval: taste → keywords → growing corpus</h2>
+<pre>per cluster centroid:
+  tags = topK( cos(centroid, cachedVocabTextEmbeddings) )   <span class="c">// CLIP zero-shot, free</span>
+  + Claude polishes tags + thumbnails → clean Unsplash queries
+fetch (only NEW queries, rate-budgeted) → persist {id, url, embedding}
++ ~20% adjacent/exploratory queries (medium-distance tags, random endpoint)
+rank the ENTIRE accumulated corpus offline → MMR → deck</pre>
+
+  <h2><span class="num">04</span>build order</h2>
+  <div class="step"><div class="n">1</div><div class="b"><b>Persistent corpus + MMR + near-dup cull.</b> Biggest immediate win — diverse feed from a pool that grows.</div></div>
+  <div class="step"><div class="n">2</div><div class="b"><b>Multi-prototype + shrinkage.</b> Already have facets (k-means); add max-scoring + shrinkage. Kills muddy-mean.</div></div>
+  <div class="step"><div class="n">3</div><div class="b"><b>Rocchio negatives.</b> Dislike centroid from skips, subtracted in scoring.</div></div>
+  <div class="step"><div class="n">4</div><div class="b"><b>taste→text via CLIP zero-shot vocab</b> (+ fix facet labeling to use display-size images, not full-res — the current bug).</div></div>
+  <div class="step"><div class="n">5</div><div class="b"><b>ε-greedy + keep-rate gauge.</b> Exploit-vs-explore keep-rate = built-in proof it learns.</div></div>
+  <div class="step"><div class="n">6</div><div class="b"><b>Recency decay.</b> Last — only matters across sessions.</div></div>
+
+  <h2><span class="num">05</span>measuring "did it get better?"</h2>
+  <p>No ground truth, but a clean signal: every deck mixes model-picked (exploit) and random (explore) cards. <strong>If exploit keep-rate &gt; explore keep-rate, the model is adding real value.</strong> A free, continuous, single-user A/B. Plus rolling keep-rate over the last 20 cards should trend up.</p>
+
+  <h2><span class="num">06</span>what to skip</h2>
+  <ul>
+    <li><strong>Two-tower + ANN (HNSW/Faiss)</strong> — pointless without owning a corpus.</li>
+    <li><strong>GCN/PinSage, transformers (PinnerFormer)</strong> — need a graph + GPU + millions of users.</li>
+    <li><strong>DPP</strong> — MMR gets 90% of the diversity benefit at 10% of the complexity.</li>
+    <li><strong>Online logistic regression / LinUCB</strong> — viable upgrade later; the multi-prototype centroid model converges faster and is debuggable at small N.</li>
+  </ul>
+
+  <footer>
+    trove · recommendation-engine spec · synthesized from 4 parallel research agents (industry visual recsys · taste modeling from binary feedback · retrieval with keyword-only corpus · practical Node implementations), 2026-06-06.<br>
+    Key sources: PinnerSage (arXiv 2007.03634) · MIND (1904.08030) · ComiRec (2005.09347) · Rocchio (Stanford IR) · MMR (Carbonell &amp; Goldstein 1998) · LAION aesthetic predictor · CLIP-Interrogator.
+  </footer>
+</body>
+</html>

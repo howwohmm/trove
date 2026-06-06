@@ -162,7 +162,7 @@ export async function dreamTick(): Promise<TickResult> {
     let described = 0;
     for (const item of pending) {
       try {
-        const desc = await describe(item.file);
+        const desc = await describe(item.url);
         if (!desc) continue;
         const existingQualities = Object.values(store.descriptions).flatMap((d) => d.qualities);
         const verdict = await decide(desc, existingQualities);

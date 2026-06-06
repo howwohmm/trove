@@ -11,6 +11,7 @@ export interface Candidate {
   height: number;
   author?: string;
   link?: string; // source page (attribution)
+  tags?: string[]; // keywords from the source — drive taste-based retrieval
   source: Source;
 }
 
@@ -29,13 +30,21 @@ export interface LibraryItem {
   url: string; // original display url
   author?: string;
   link?: string;
+  tags?: string[];
   source: Source;
   ts: number;
+}
+
+// user steering over generation
+export interface Prefs {
+  steer: string; // free-text direction injected into every generated prompt
+  avoid: string; // free-text negatives — never generate these
 }
 
 export interface State {
   taste: number[] | null; // running-mean taste vector (unit-normalized)
   tasteCount: number; // number of likes folded into the taste vector
+  prefs: Prefs;
   swipes: SwipeRecord[];
   library: LibraryItem[];
 }

@@ -2,10 +2,7 @@
 // generating from, and synthesizes fresh prompts in your aesthetic.
 // needs ANTHROPIC_API_KEY in .env.local.
 
-import { promises as fs } from "fs";
-import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
-import { LIBRARY_DIR } from "./store";
 
 // cheap + vision-capable for describe/decide; creative model for prompt-writing
 const DESCRIBE_MODEL = "claude-haiku-4-5-20251001";
@@ -34,12 +31,10 @@ function parseJson<T>(text: string): T | null {
   }
 }
 
-function mediaType(file: string): "image/jpeg" | "image/png" | "image/webp" | "image/gif" {
-  const ext = file.split(".").pop()?.toLowerCase();
-  if (ext === "png") return "image/png";
-  if (ext === "webp") return "image/webp";
-  if (ext === "gif") return "image/gif";
-  return "image/jpeg";
+// image block from a public url — Claude fetches + resizes, so we avoid the
+// 5MB/full-res limit that base64-ing local files hit.
+function imageBlock(url: string): Anthropic.ImageBlockParam {
+  return { type: "image", source: { type: "url", url } };
 }
 
 export interface Description {
@@ -48,10 +43,8 @@ export interface Description {
   distinctiveness: number; // 0..1 — how specific/non-generic the taste signal is
 }
 
-// describe a kept image's aesthetic qualities from the file on disk
-export async function describe(file: string): Promise<Description | null> {
-  const buf = await fs.readFile(path.join(LIBRARY_DIR, file));
-  const b64 = buf.toString("base64");
+// describe a kept image's aesthetic qualities from its (display-size) url
+export async function describe(imageUrl: string): Promise<Description | null> {
   const res = await getClient().messages.create({
     model: DESCRIBE_MODEL,
     max_tokens: 500,
@@ -59,10 +52,7 @@ export async function describe(file: string): Promise<Description | null> {
       {
         role: "user",
         content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mediaType(file), data: b64 },
-          },
+          imageBlock(imageUrl),
           {
             type: "text",
             text: `You read images for their aesthetic. Describe THIS image's taste signal — palette, light, mood, composition, texture, subject treatment, era/style. Focus on what makes it feel the way it does, not literal contents.
@@ -76,6 +66,34 @@ distinctiveness = how specific/unusual the taste is (generic stock = low, singul
   });
   const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("");
   return parseJson<Description>(text);
+}
+
+// name a visual cluster (facet) from a few representative images, and give
+// search keywords to retrieve more like it.
+export async function labelFacet(
+  urls: string[]
+): Promise<{ label: string; queries: string[] } | null> {
+  const imgs = urls.slice(0, 3).map(imageBlock);
+  if (!imgs.length) return null;
+  const res = await getClient().messages.create({
+    model: DECIDE_MODEL,
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: [
+          ...imgs,
+          {
+            type: "text",
+            text: `These images share one visual aesthetic. Give a short lowercase label (2-4 words) naming the vibe, and 3 concise image-search keywords to find more like them.
+Reply ONLY with JSON: {"label":"...","queries":["...","...","..."]}`,
+          },
+        ],
+      },
+    ],
+  });
+  const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  return parseJson<{ label: string; queries: string[] }>(text);
 }
 
 export interface Verdict {

@@ -3,6 +3,7 @@
 // personal single-user tool — no public redistribution, so sourcing is low-risk.
 
 import type { Candidate } from "./types";
+import { getLibrary } from "./store";
 
 const CARD_W = 800;
 const CARD_H = 1100;
@@ -56,12 +57,60 @@ interface UnsplashPhoto {
   urls: { regular: string; full: string };
   user: { name: string };
   links: { html: string };
+  tags?: { title: string }[];
 }
 
 // growing in-memory pool of unsplash candidates. demo tier is 50 req/hr, so we
-// cache aggressively and only call the api when we're low on UNSEEN photos.
+// cache aggressively: each search query is fetched once, results merged here.
 let unsplashCache: Candidate[] = [];
+const fetchedQueries = new Set<string>();
 
+function mapPhoto(ph: UnsplashPhoto): Candidate {
+  return {
+    id: `unsplash-${ph.id}`,
+    url: ph.urls.regular,
+    downloadUrl: ph.urls.full,
+    width: ph.width,
+    height: ph.height,
+    author: ph.user?.name,
+    link: ph.links?.html,
+    tags: ph.tags?.map((t) => t.title).filter(Boolean),
+    source: "unsplash",
+  };
+}
+
+function mergeIntoCache(photos: UnsplashPhoto[]): void {
+  const have = new Set(unsplashCache.map((c) => c.id));
+  for (const ph of photos) {
+    if (have.has(`unsplash-${ph.id}`)) continue;
+    unsplashCache.push(mapPhoto(ph));
+  }
+}
+
+function unseenCount(seen: Set<string>): number {
+  return unsplashCache.filter((c) => !seen.has(c.id)).length;
+}
+
+// retrieval: pull images RELEVANT to a taste keyword (the pinterest move)
+async function searchUnsplash(query: string, key: string): Promise<void> {
+  const q = query.trim().toLowerCase();
+  if (!q || fetchedQueries.has(q)) return;
+  fetchedQueries.add(q);
+  try {
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}` +
+        `&per_page=30&orientation=portrait&content_filter=high&client_id=${key}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return;
+    const data = (await res.json()) as { results: UnsplashPhoto[] };
+    mergeIntoCache(data.results ?? []);
+  } catch {
+    // keep whatever we have
+  }
+}
+
+// cold-start / fallback: random editorial photos
 async function topUpUnsplash(key: string): Promise<void> {
   try {
     const res = await fetch(
@@ -69,31 +118,37 @@ async function topUpUnsplash(key: string): Promise<void> {
       { cache: "no-store" }
     );
     if (!res.ok) return;
-    const photos = (await res.json()) as UnsplashPhoto[];
-    const have = new Set(unsplashCache.map((c) => c.id));
-    for (const ph of photos) {
-      const id = `unsplash-${ph.id}`;
-      if (have.has(id)) continue;
-      unsplashCache.push({
-        id,
-        url: ph.urls.regular,
-        downloadUrl: ph.urls.full,
-        width: ph.width,
-        height: ph.height,
-        author: ph.user?.name,
-        link: ph.links?.html,
-        source: "unsplash",
-      });
-    }
+    mergeIntoCache((await res.json()) as UnsplashPhoto[]);
   } catch {
-    // keep whatever we have on failure
+    // keep whatever we have
   }
 }
 
-// ensure ~40 unseen photos are cached, topping up at most a few times per call
-async function ensureUnsplash(key: string, seen: Set<string>): Promise<Candidate[]> {
+// the top taste keywords from what you've kept — drive retrieval
+async function libraryTagQueries(limit = 5): Promise<string[]> {
+  const lib = await getLibrary();
+  const freq = new Map<string, number>();
+  for (const it of lib) for (const t of it.tags ?? []) freq.set(t, (freq.get(t) ?? 0) + 1);
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([t]) => t);
+}
+
+// fill the cache with taste-relevant photos (search by keywords), falling back
+// to random only when we can't get enough relevant unseen ones (e.g. cold start).
+async function ensureUnsplash(
+  key: string,
+  seen: Set<string>,
+  queries?: string[]
+): Promise<Candidate[]> {
+  const qs = queries ?? (await libraryTagQueries());
+  for (const q of qs) {
+    if (unseenCount(seen) >= 40) break;
+    await searchUnsplash(q, key);
+  }
   let tries = 0;
-  while (unsplashCache.filter((c) => !seen.has(c.id)).length < 40 && tries < 2) {
+  while (unseenCount(seen) < 40 && tries < 2) {
     await topUpUnsplash(key);
     tries++;
   }
@@ -110,12 +165,16 @@ export function shuffle<T>(arr: T[]): T[] {
 }
 
 // the full unseen pool, in source order — ranking happens on top of this.
+// pass opts.queries to retrieve a specific taste (e.g. one facet's keywords).
 export async function getFreshPool(
   seen: Set<string>,
-  limit = 200
+  limit = 200,
+  opts?: { queries?: string[] }
 ): Promise<Candidate[]> {
   const key = process.env.UNSPLASH_ACCESS_KEY;
-  const pool = key ? await ensureUnsplash(key, seen) : await fetchPicsumPool();
+  const pool = key
+    ? await ensureUnsplash(key, seen, opts?.queries)
+    : await fetchPicsumPool();
   return pool.filter((c) => !seen.has(c.id)).slice(0, limit);
 }
 
