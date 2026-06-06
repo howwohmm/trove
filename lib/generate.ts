@@ -64,8 +64,19 @@ async function saveDataUrl(id: string, dataUrl: string): Promise<string> {
   return save(id, Buffer.from(m[2], "base64").buffer, ext);
 }
 
-// OpenRouter image gen via the chat-completions endpoint (modalities: image)
-async function genOpenRouter(id: string, prompt: string): Promise<string> {
+// OpenRouter image gen via the chat-completions endpoint (modalities: image).
+// refs = reference image urls (your real kept images) — Nano Banana conditions on
+// them so the output actually matches your visual taste, not just the text.
+async function genOpenRouter(id: string, prompt: string, refs: string[] = []): Promise<string> {
+  const content: unknown[] = [
+    {
+      type: "text",
+      text: refs.length
+        ? `${prompt}\n\nUse the reference images ONLY for aesthetic — palette, light, composition, texture. Create a NEW scene, do not copy them.`
+        : prompt,
+    },
+    ...refs.map((url) => ({ type: "image_url", image_url: { url } })),
+  ];
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -76,7 +87,7 @@ async function genOpenRouter(id: string, prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: OR_MODEL,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
       modalities: ["image", "text"],
       image_config: { aspect_ratio: "3:4", image_size: "2K" },
     }),
@@ -136,10 +147,14 @@ async function genTogether(id: string, prompt: string): Promise<string> {
   throw new Error("together returned no image");
 }
 
-export async function generateImage(id: string, prompt: string): Promise<string> {
+export async function generateImage(
+  id: string,
+  prompt: string,
+  refs: string[] = []
+): Promise<string> {
   const provider = activeProvider();
-  if (provider === "openrouter") return genOpenRouter(id, prompt);
-  if (provider === "fal") return genFal(id, prompt);
+  if (provider === "openrouter") return genOpenRouter(id, prompt, refs);
+  if (provider === "fal") return genFal(id, prompt); // fal/together: text-only
   if (provider === "together-flux-schnell") return genTogether(id, prompt);
   throw new Error(
     "no image provider — set OPENROUTER_API_KEY (recommended), FAL_KEY, or TOGETHER_API_KEY in .env.local"

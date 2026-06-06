@@ -96,7 +96,7 @@ export function DreamDeck({
             kill
           </motion.span>
           <span className="byline">
-            dream{top.generation > 0 ? ` · gen ${top.generation}` : ""}
+            {top.facetLabel ?? "dream"}{top.generation > 0 ? ` · gen ${top.generation}` : ""}
             <span className="src"> · {deck.length} to judge</span>
           </span>
         </motion.div>

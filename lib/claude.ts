@@ -156,14 +156,20 @@ export async function synthesizePrompt(
     .join("\n");
   const res = await getClient().messages.create({
     model: SYNTH_MODEL,
-    max_tokens: 400,
+    max_tokens: 350,
     messages: [
       {
         role: "user",
-        content: `These describe the aesthetic taste of one person, learned from images they kept:
+        content: `These images all belong to ONE coherent aesthetic the user loves:
 ${blob}
 
-Write ONE original text-to-image prompt for a NEW image that embodies the THROUGHLINE of this taste — the shared palette, mood, light and sensibility — without copying any single image. It should feel inevitable to this person, fresh, and specific. Rich visual language, no camera-brand jargon, no "in the style of <artist>".${prefsClause(prefs)}
+Write ONE concrete text-to-image prompt for a NEW image in this exact aesthetic. These descriptions share a palette, light, and sensibility — capture THAT, applied to one fresh subject/scene.
+
+Rules:
+- Lead with a concrete SUBJECT, then PALETTE (name specific colors), then COMPOSITION/framing, then LIGHT quality, then medium/texture.
+- Terse, visual, comma-separated clauses. NOT a story, NOT emotional prose.
+- One subject only — do not mash unrelated scenes together.
+- No artist names, no camera-brand jargon.${prefsClause(prefs)}
 Reply ONLY with JSON: {"prompt":"the prompt"}`,
       },
     ],

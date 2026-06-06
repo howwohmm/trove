@@ -13,12 +13,23 @@ import {
   mutatePrompt,
   type Description,
 } from "./claude";
-import { generateImage, activeProvider } from "./generate";
+import { generateImage, activeProvider, GENERATED_DIR } from "./generate";
 import { getFacets } from "./facets";
+
+// a generated image as a base64 data url, to use as a visual reference
+async function genRefDataUrl(file: string): Promise<string | null> {
+  try {
+    const buf = await fs.readFile(path.join(GENERATED_DIR, file));
+    const ext = file.endsWith(".png") ? "png" : "jpeg";
+    return `data:image/${ext};base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 const FILE = path.join(process.cwd(), "data", "dreams.json");
 
-const GEN_THRESHOLD = Number(process.env.TROVE_GEN_THRESHOLD) || 3; // worthy descriptions before a dream
+const PER_FACET_THRESHOLD = Number(process.env.TROVE_GEN_THRESHOLD) || 2; // worthy imgs in one facet before it dreams
 const DESCRIBE_MAX = 8; // cap describe work per tick to bound cost/latency
 
 interface StoredDesc extends Description {
@@ -42,6 +53,7 @@ export interface Dream {
   status: DreamStatus; // swipe verdict on the dream itself
   parentId?: string; // dream this one was bred from (lineage)
   generation: number; // 0 = born from real keeps, n = n mutations deep
+  facetLabel?: string; // which taste facet this dream came from
 }
 
 interface DreamStore {
@@ -107,9 +119,11 @@ export async function evolveDream(id: string): Promise<void> {
     const childPrompt = await mutatePrompt(parent.prompt, await getPrefs());
     if (!childPrompt) return;
     const childId = dreamId(store);
+    // condition the child on the loved parent image so it stays in the same look
+    const parentRef = await genRefDataUrl(parent.file);
     let file: string;
     try {
-      file = await generateImage(childId, childPrompt);
+      file = await generateImage(childId, childPrompt, parentRef ? [parentRef] : []);
     } catch {
       return; // gen failed — no child this time
     }
@@ -123,6 +137,7 @@ export async function evolveDream(id: string): Promise<void> {
       status: "pending",
       parentId: parent.id,
       generation: (parent.generation ?? 0) + 1,
+      facetLabel: parent.facetLabel,
     });
     await persist();
   });
@@ -146,11 +161,17 @@ export async function dreamFromFacet(facetId: string): Promise<TickResult> {
     };
     const prompt = await synthesizePrompt([pseudo], await getPrefs());
     if (!prompt) return base;
+    const lib = await getLibrary();
+    const libById = new Map(lib.map((l) => [l.id, l]));
+    const refs = facet.memberIds
+      .map((mid) => libById.get(mid)?.url)
+      .filter((u): u is string => !!u)
+      .slice(0, 3);
     const store = await load();
     const id = dreamId(store);
     let file: string;
     try {
-      file = await generateImage(id, prompt);
+      file = await generateImage(id, prompt, refs);
     } catch {
       return base;
     }
@@ -163,6 +184,7 @@ export async function dreamFromFacet(facetId: string): Promise<TickResult> {
       ts: Date.now(),
       status: "pending",
       generation: 0,
+      facetLabel: facet.label,
     });
     await persist();
     return { ...base, generated: true, prompt, provider: activeProvider() };
@@ -249,40 +271,59 @@ export async function dreamTick(): Promise<TickResult> {
     }
     if (described) await persist();
 
-    // 2. if enough worthy-but-unused aesthetics, dream
-    const worthyUnused = Object.values(store.descriptions).filter((d) => d.worth && !d.used);
-    if (worthyUnused.length < GEN_THRESHOLD) {
-      return { described, worthyUnused: worthyUnused.length, generated: false };
-    }
+    // 2. dream from ONE coherent facet (never a blend), grounded by its real images
+    const worthyTotal = Object.values(store.descriptions).filter((d) => d.worth && !d.used).length;
+    const facets = await getFacets();
+    const libById = new Map(library.map((l) => [l.id, l]));
 
-    const batch = worthyUnused.slice(0, 6);
-    const prompt = await synthesizePrompt(batch, await getPrefs());
-    if (!prompt) return { described, worthyUnused: worthyUnused.length, generated: false };
+    let chosen: (typeof facets)[number] | null = null;
+    let chosenDescs: StoredDesc[] = [];
+    for (const f of facets) {
+      const worthy = f.memberIds
+        .map((mid) => store.descriptions[mid])
+        .filter((d): d is StoredDesc => !!d && d.worth && !d.used);
+      if (worthy.length >= PER_FACET_THRESHOLD) {
+        chosen = f;
+        chosenDescs = worthy.slice(0, 5);
+        break;
+      }
+    }
+    if (!chosen) return { described, worthyUnused: worthyTotal, generated: false };
+
+    const prompt = await synthesizePrompt(chosenDescs, await getPrefs());
+    if (!prompt) return { described, worthyUnused: worthyTotal, generated: false };
+
+    // reference images = real kept images from this facet (public urls → Nano Banana
+    // conditions on them so the output matches the actual look)
+    const refs = chosen.memberIds
+      .map((mid) => libById.get(mid)?.url)
+      .filter((u): u is string => !!u)
+      .slice(0, 3);
 
     const id = dreamId(store);
     let file: string;
     try {
-      file = await generateImage(id, prompt);
+      file = await generateImage(id, prompt, refs);
     } catch (e) {
-      // no provider key / gen failure — keep the prompt, don't burn the worthy set
-      return { described, worthyUnused: worthyUnused.length, generated: false, prompt, provider: String(e) };
+      return { described, worthyUnused: worthyTotal, generated: false, prompt, provider: String(e) };
     }
     store.dreams.unshift({
       id,
       prompt,
-      sourceIds: batch.map((d) => d.id),
+      sourceIds: chosenDescs.map((d) => d.id),
       file,
       provider: activeProvider(),
       ts: Date.now(),
       status: "pending",
       generation: 0,
+      facetLabel: chosen.label,
     });
-    for (const d of batch) store.descriptions[d.id].used = true;
+    for (const d of chosenDescs) store.descriptions[d.id].used = true;
     await persist();
 
     return {
       described,
-      worthyUnused: worthyUnused.length,
+      worthyUnused: worthyTotal,
       generated: true,
       prompt,
       provider: activeProvider(),
