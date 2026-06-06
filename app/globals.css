@@ -55,7 +55,7 @@ code {
   align-items: baseline;
   justify-content: space-between;
   padding: 1.4rem 1.6rem 0;
-  max-width: 760px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 .brand {
@@ -74,7 +74,7 @@ code {
 }
 
 main {
-  max-width: 760px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 0 1.2rem;
 }
@@ -220,28 +220,39 @@ main {
   font-size: 0.85rem;
   margin: 0 0 1.2rem;
 }
+/* pinterest-style masonry: dense, small tiles, more columns as it gets wider */
 .grid {
   columns: 2;
-  column-gap: 10px;
+  column-gap: 8px;
 }
-@media (min-width: 560px) {
+@media (min-width: 480px) {
   .grid {
     columns: 3;
   }
 }
+@media (min-width: 720px) {
+  .grid {
+    columns: 4;
+  }
+}
+@media (min-width: 980px) {
+  .grid {
+    columns: 5;
+  }
+}
 .tile {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   break-inside: avoid;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  border: 1px solid var(--line);
 }
 .tile img {
   width: 100%;
   display: block;
-  transition: opacity 0.2s ease;
+  transition: transform 0.25s ease, opacity 0.25s ease;
 }
 .tile:hover img {
-  opacity: 0.85;
+  transform: scale(1.02);
+  opacity: 0.92;
 }

@@ -1,0 +1,73 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Dream } from "@/lib/dreams";
+
+interface DreamData {
+  dreams: Dream[];
+  provider: string;
+  enabled: boolean;
+}
+
+export default function DreamsPage() {
+  const [data, setData] = useState<DreamData | null>(null);
+
+  useEffect(() => {
+    fetch("/api/dreams")
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => setData({ dreams: [], provider: "", enabled: false }));
+  }, []);
+
+  if (!data) return <p className="hint">loading dreams…</p>;
+
+  if (!data.enabled)
+    return (
+      <p className="hint">
+        dreams are off. add <code>ANTHROPIC_API_KEY</code> to{" "}
+        <code>.env.local</code> and restart — then keep a few images and trove
+        starts generating in your taste.
+      </p>
+    );
+
+  if (data.dreams.length === 0 && data.provider === "none")
+    return (
+      <p className="hint">
+        the taste brain is on, but no image generator is set. add{" "}
+        <code>FAL_KEY</code> (best output) or <code>TOGETHER_API_KEY</code> (free)
+        to <code>.env.local</code> and restart. then keep a few distinctive
+        images and dreams appear here.
+      </p>
+    );
+
+  if (data.dreams.length === 0)
+    return (
+      <p className="hint">
+        no dreams yet. keep more images — once enough distinctive aesthetics
+        accumulate, trove generates new ones here. (gen: {data.provider})
+      </p>
+    );
+
+  return (
+    <div className="lib">
+      <p className="lib-head">
+        {data.dreams.length} dreamed · generated in your taste · {data.provider}
+      </p>
+      <div className="grid">
+        {data.dreams.map((d) => (
+          <a
+            key={d.id}
+            className="tile"
+            href={`/api/gen/${d.file}`}
+            target="_blank"
+            rel="noreferrer"
+            title={d.prompt}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/api/gen/${d.file}`} alt={d.prompt} loading="lazy" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}

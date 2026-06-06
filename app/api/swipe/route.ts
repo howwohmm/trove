@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordSwipe, addToLibrary, saveImageFile, updateTaste } from "@/lib/store";
 import { getEmbedding } from "@/lib/embeddings";
+import { scheduleDream } from "@/lib/dreams";
 import type { Candidate, SwipeDir } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,8 @@ export async function POST(req: Request) {
       } catch {
         // embedding/model may still be warming up — the keep is already saved
       }
+      // kick the dream pipeline in the background (describe → decide → generate)
+      scheduleDream();
     } catch (e) {
       // swipe is recorded; surface download failure but don't 500 the swipe
       return NextResponse.json(
