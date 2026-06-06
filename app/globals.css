@@ -258,8 +258,10 @@ main {
   text-transform: uppercase;
   margin: 0 0 1rem;
 }
-/* column-width auto-fills the full screen width with ~uniform columns */
-.grid {
+/* column-width auto-fills the full screen width with ~uniform columns.
+   NB: named .masonry not .grid — .grid collides with tailwind's display:grid
+   utility, which breaks css multi-column (renders as a single full-width list). */
+.masonry {
   column-width: 230px;
   column-gap: 6px;
 }
@@ -347,6 +349,81 @@ main {
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-top: 0.5rem;
+}
+
+/* ---- status / live metrics ---- */
+.status {
+  padding: 1.6rem 0 5rem;
+  max-width: 560px;
+}
+.status-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 1rem;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.dot--live {
+  background: var(--red);
+  box-shadow: 0 0 8px var(--red);
+}
+.status h2 {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  margin: 1.8rem 0 0.5rem;
+  font-weight: 600;
+}
+.srow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.slabel {
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+.sval {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.sval--red {
+  color: var(--red);
+}
+.sval--yellow {
+  color: var(--yellow);
+}
+.facet-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+.facet-pill {
+  font-size: 0.78rem;
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.25rem 0.55rem;
+}
+.facet-pill em {
+  color: var(--faint);
+  font-style: normal;
+  margin-left: 0.2rem;
 }
 
 /* ---- dream prompt edit ---- */

@@ -65,6 +65,18 @@ interface UnsplashPhoto {
 let unsplashCache: Candidate[] = [];
 const fetchedQueries = new Set<string>();
 
+// last-seen rate-limit headers from real unsplash calls (so /status never spends
+// a request just to check the limit)
+let lastRate: { remaining: number; limit: number; at: number } | null = null;
+export function getUnsplashRate() {
+  return lastRate;
+}
+function captureRate(res: Response): void {
+  const r = res.headers.get("x-ratelimit-remaining");
+  const l = res.headers.get("x-ratelimit-limit");
+  if (r !== null && l !== null) lastRate = { remaining: +r, limit: +l, at: Date.now() };
+}
+
 function mapPhoto(ph: UnsplashPhoto): Candidate {
   return {
     id: `unsplash-${ph.id}`,
@@ -102,6 +114,7 @@ async function searchUnsplash(query: string, key: string): Promise<void> {
         `&per_page=30&orientation=portrait&content_filter=high&client_id=${key}`,
       { cache: "no-store" }
     );
+    captureRate(res);
     if (!res.ok) return;
     const data = (await res.json()) as { results: UnsplashPhoto[] };
     mergeIntoCache(data.results ?? []);
@@ -117,6 +130,7 @@ async function topUpUnsplash(key: string): Promise<void> {
       `https://api.unsplash.com/photos/random?count=30&orientation=portrait&client_id=${key}`,
       { cache: "no-store" }
     );
+    captureRate(res);
     if (!res.ok) return;
     mergeIntoCache((await res.json()) as UnsplashPhoto[]);
   } catch {

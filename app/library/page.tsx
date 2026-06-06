@@ -28,7 +28,7 @@ export default function LibraryPage() {
       <p className="lib-head">
         {items.length} kept · files live in <code>/library</code>
       </p>
-      <div className="grid">
+      <div className="masonry">
         {items.map((it) => (
           <a
             key={it.id}
@@ -38,8 +38,9 @@ export default function LibraryPage() {
             rel="noreferrer"
             title={it.author ? `${it.author} · ${it.source}` : it.source}
           >
+            {/* grid shows the fast CDN-sized image; href opens the full-res local file */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/img/${it.file}`} alt="" loading="lazy" />
+            <img src={it.url || `/api/img/${it.file}`} alt="" loading="lazy" />
           </a>
         ))}
       </div>

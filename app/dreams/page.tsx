@@ -74,7 +74,7 @@ export default function DreamsPage() {
             next generation.
           </p>
         ) : (
-          <div className="grid">
+          <div className="masonry">
             {kept.map((d) => (
               <button
                 key={d.id}
