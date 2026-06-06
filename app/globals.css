@@ -522,6 +522,161 @@ main {
   height: 44px;
 }
 .lottie-load {
-  width: 90px;
-  height: 60px;
+  width: 110px;
+  height: 70px;
+}
+
+/* ================= immersive swipe surface ================= */
+.immersive {
+  position: fixed;
+  inset: 0;
+  padding-top: 60px; /* clear the sticky topbar */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+/* the current image, blurred, washes the whole surface in its colors */
+.ambient {
+  position: absolute;
+  inset: -12%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(90px) saturate(1.5);
+  opacity: 0.62;
+  transform: scale(1.15);
+  z-index: 0;
+  animation: ambient-in 0.9s ease;
+}
+[data-theme="light"] .ambient {
+  opacity: 0.45;
+}
+@keyframes ambient-in {
+  from {
+    opacity: 0;
+  }
+}
+/* scrim so the card + controls stay legible over the ambient */
+.immersive::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0.42;
+  z-index: 1;
+}
+
+.imm-top {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem 0;
+  width: 100%;
+}
+
+.stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icard {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(88vw, 500px);
+  height: min(76vh, 680px);
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 40px 110px -34px rgba(0, 0, 0, 0.65);
+}
+.icard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.icard--under {
+  transform: scale(0.93) translateY(16px);
+  filter: brightness(0.82);
+  opacity: 0.85;
+}
+.icard--top {
+  cursor: grab;
+  z-index: 2;
+}
+
+/* directional glows that bloom as you drag toward an action */
+.glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.glow--like {
+  background: radial-gradient(circle at 92% 50%, rgba(255, 70, 70, 0.7), transparent 62%);
+}
+.glow--pass {
+  background: radial-gradient(circle at 8% 50%, rgba(150, 150, 160, 0.7), transparent 62%);
+}
+.glow--dream {
+  background: radial-gradient(circle at 50% 6%, rgba(255, 120, 120, 0.8), transparent 60%);
+}
+.dir {
+  position: absolute;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 0.35rem 0.85rem;
+  border-radius: 12px;
+  pointer-events: none;
+}
+.dir--like {
+  top: 22px;
+  right: 20px;
+  background: var(--red);
+}
+.dir--pass {
+  top: 22px;
+  left: 20px;
+  background: rgba(90, 90, 96, 0.9);
+}
+.dir--dream {
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--red);
+}
+
+.imm-controls {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  padding-bottom: 1.6rem;
+}
+.imm-controls .btn {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(12px);
+}
+.btn--dream {
+  font-size: 1.1rem;
+}
+.btn--dream:hover {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
 }
