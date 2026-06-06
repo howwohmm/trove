@@ -26,7 +26,6 @@ export function SwipeDeck() {
   const [tasteCount, setTasteCount] = useState(0);
   const [facets, setFacets] = useState<{ id: string; label: string }[]>([]);
   const [facetId, setFacetId] = useState<string | null>(null);
-  const [burst, setBurst] = useState<{ key: number; kind: "sparkle" | "success" } | null>(null);
   const fetching = useRef(false);
 
   const x = useMotionValue(0);
@@ -95,11 +94,7 @@ export function SwipeDeck() {
       if (dir === "dream") fetch("/api/dream", { method: "POST" }).catch(() => {});
 
       setSeenCount((n) => n + 1);
-      if (dir !== "skip") {
-        setSaved((n) => n + 1);
-        setBurst({ key: Date.now(), kind: dir === "dream" ? "success" : "sparkle" });
-        setTimeout(() => setBurst(null), 1000);
-      }
+      if (dir !== "skip") setSaved((n) => n + 1);
 
       const target = dir === "like" ? { x: 1300, y: 0 } : dir === "skip" ? { x: -1300, y: 0 } : { x: 0, y: -1300 };
       const mv = dir === "dream" ? y : x;
@@ -219,11 +214,6 @@ export function SwipeDeck() {
           </motion.div>
         )}
 
-        {burst && (
-          <div className="burst" key={burst.key}>
-            <LottiePlayer name={burst.kind} loop={false} />
-          </div>
-        )}
       </div>
 
       <div className="imm-controls">
