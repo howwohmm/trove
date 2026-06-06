@@ -8,6 +8,8 @@ import { LottiePlayer } from "@/components/LottiePlayer";
 const FETCH_AHEAD = 6;
 const THRESHOLD = 110;
 const VELOCITY = 600;
+// springy + slightly under-damped → a tactile little overshoot on every press
+const TACTILE = { type: "spring", stiffness: 500, damping: 13 } as const;
 
 type Dir = "like" | "skip" | "dream";
 
@@ -148,17 +150,26 @@ export function SwipeDeck() {
       <div className="imm-top">
         {facets.length > 0 && (
           <div className="chips">
-            <button className={`chip ${!facetId ? "chip--on" : ""}`} onClick={() => selectFacet(null)}>
+            <motion.button
+              className={`chip ${!facetId ? "chip--on" : ""}`}
+              onClick={() => selectFacet(null)}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.92 }}
+              transition={TACTILE}
+            >
               all
-            </button>
+            </motion.button>
             {facets.map((f) => (
-              <button
+              <motion.button
                 key={f.id}
                 className={`chip ${facetId === f.id ? "chip--on" : ""}`}
                 onClick={() => selectFacet(f.id)}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.92 }}
+                transition={TACTILE}
               >
                 {f.label}
-              </button>
+              </motion.button>
             ))}
           </div>
         )}
@@ -217,13 +228,40 @@ export function SwipeDeck() {
       </div>
 
       <div className="imm-controls">
-        <button className="btn btn--pass" onClick={() => commit("skip")} aria-label="pass">✕</button>
-        <button className="btn btn--dream" onClick={() => commit("dream")} aria-label="dream it">✦</button>
+        <motion.button
+          className="btn btn--pass"
+          onClick={() => commit("skip")}
+          aria-label="pass"
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.82, rotate: -8 }}
+          transition={TACTILE}
+        >
+          ✕
+        </motion.button>
+        <motion.button
+          className="btn btn--dream"
+          onClick={() => commit("dream")}
+          aria-label="dream it"
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.82, rotate: 8 }}
+          transition={TACTILE}
+        >
+          ✦
+        </motion.button>
         <div className="count">
           <span>{saved} kept</span>
           <span className="dim">{seenCount} seen</span>
         </div>
-        <button className="btn btn--keep" onClick={() => commit("like")} aria-label="keep">♥</button>
+        <motion.button
+          className="btn btn--keep"
+          onClick={() => commit("like")}
+          aria-label="keep"
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.82, rotate: 8 }}
+          transition={TACTILE}
+        >
+          ♥
+        </motion.button>
       </div>
     </div>
   );

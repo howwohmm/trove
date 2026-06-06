@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "motion/react";
 
 type Theme = "light" | "dark";
 
@@ -23,8 +24,15 @@ export function ThemeToggle() {
   };
 
   return (
-    <button className="theme-toggle" onClick={toggle} aria-label="toggle light/dark">
+    <motion.button
+      className="theme-toggle"
+      onClick={toggle}
+      aria-label="toggle light/dark"
+      whileTap={{ scale: 0.7, rotate: 180 }}
+      whileHover={{ scale: 1.15 }}
+      transition={{ type: "spring", stiffness: 500, damping: 12 }}
+    >
       {theme === "dark" ? "☀" : "☾"}
-    </button>
+    </motion.button>
   );
 }
