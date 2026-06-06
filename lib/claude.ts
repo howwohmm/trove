@@ -136,3 +136,24 @@ Reply ONLY with JSON: {"prompt":"the prompt"}`,
   const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("");
   return parseJson<{ prompt: string }>(text)?.prompt ?? null;
 }
+
+// the loved one bred: mutate a prompt that produced an image the user KEPT into
+// a fresh variation — keep what worked, push into new territory in the same vein.
+export async function mutatePrompt(parent: string): Promise<string | null> {
+  const res = await getClient().messages.create({
+    model: SYNTH_MODEL,
+    max_tokens: 400,
+    messages: [
+      {
+        role: "user",
+        content: `This text-to-image prompt produced an image the user LOVED:
+"${parent}"
+
+Write ONE new prompt that evolves it: preserve the palette, mood and sensibility that clearly worked, but change the subject, scene or composition so it feels fresh — a sibling, not a copy. Same soul, new body. Rich visual language, no "in the style of <artist>", no camera-brand jargon.
+Reply ONLY with JSON: {"prompt":"the evolved prompt"}`,
+      },
+    ],
+  });
+  const text = res.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  return parseJson<{ prompt: string }>(text)?.prompt ?? null;
+}

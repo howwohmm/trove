@@ -5,7 +5,14 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { getLibrary } from "./store";
-import { hasClaude, describe, decide, synthesizePrompt, type Description } from "./claude";
+import {
+  hasClaude,
+  describe,
+  decide,
+  synthesizePrompt,
+  mutatePrompt,
+  type Description,
+} from "./claude";
 import { generateImage, activeProvider } from "./generate";
 
 const FILE = path.join(process.cwd(), "data", "dreams.json");
@@ -22,6 +29,8 @@ interface StoredDesc extends Description {
   ts: number;
 }
 
+export type DreamStatus = "pending" | "kept" | "passed";
+
 export interface Dream {
   id: string;
   prompt: string;
@@ -29,6 +38,9 @@ export interface Dream {
   file: string;
   provider: string;
   ts: number;
+  status: DreamStatus; // swipe verdict on the dream itself
+  parentId?: string; // dream this one was bred from (lineage)
+  generation: number; // 0 = born from real keeps, n = n mutations deep
 }
 
 interface DreamStore {
@@ -38,7 +50,18 @@ interface DreamStore {
 
 let cache: DreamStore | null = null;
 let writeChain: Promise<void> = Promise.resolve();
-let running = false;
+
+// serial generation queue: ticks and breeds run one-at-a-time, never dropped,
+// never colliding on dream ids. (image gen + claude calls are the bottleneck.)
+let genChain: Promise<unknown> = Promise.resolve();
+function exclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = genChain.then(fn, fn);
+  genChain = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+}
 
 async function load(): Promise<DreamStore> {
   if (cache) return cache;
@@ -62,9 +85,59 @@ export async function getDreams(): Promise<Dream[]> {
   return (await load()).dreams;
 }
 
-// counter for a tiny dream id (no Date.now / Math.random in id to stay readable)
+// record a swipe verdict on a dream
+export async function markDream(id: string, status: DreamStatus): Promise<void> {
+  const store = await load();
+  const d = store.dreams.find((x) => x.id === id);
+  if (d) {
+    d.status = status;
+    await persist();
+  }
+}
+
+// breed a kept dream: mutate its prompt and generate a child (next generation).
+// runs in the background off the swipe path.
+export async function evolveDream(id: string): Promise<void> {
+  if (!hasClaude() || activeProvider() === "none") return;
+  return exclusive(async () => {
+    const store = await load();
+    const parent = store.dreams.find((x) => x.id === id);
+    if (!parent) return;
+    const childPrompt = await mutatePrompt(parent.prompt);
+    if (!childPrompt) return;
+    const childId = dreamId(store);
+    let file: string;
+    try {
+      file = await generateImage(childId, childPrompt);
+    } catch {
+      return; // gen failed — no child this time
+    }
+    store.dreams.unshift({
+      id: childId,
+      prompt: childPrompt,
+      sourceIds: parent.sourceIds,
+      file,
+      provider: activeProvider(),
+      ts: Date.now(),
+      status: "pending",
+      parentId: parent.id,
+      generation: (parent.generation ?? 0) + 1,
+    });
+    await persist();
+  });
+}
+
+export function scheduleEvolve(id: string): void {
+  void evolveDream(id).catch(() => {});
+}
+
+// next dream id from the highest existing number (collision-proof under the queue)
 function dreamId(store: DreamStore): string {
-  return `dream-${store.dreams.length + 1}`;
+  const max = store.dreams.reduce((m, d) => {
+    const n = parseInt(d.id.replace("dream-", ""), 10) || 0;
+    return Math.max(m, n);
+  }, 0);
+  return `dream-${max + 1}`;
 }
 
 export interface TickResult {
@@ -76,12 +149,11 @@ export interface TickResult {
   provider?: string;
 }
 
-// one pass of the pipeline. safe to call after every like (self-locks + batches).
+// one pass of the pipeline. runs through the serial queue so it never overlaps
+// a breed or another tick. safe to call after every like (batches + dedups work).
 export async function dreamTick(): Promise<TickResult> {
   if (!hasClaude()) return { skipped: "no ANTHROPIC_API_KEY", described: 0, worthyUnused: 0, generated: false };
-  if (running) return { skipped: "already running", described: 0, worthyUnused: 0, generated: false };
-  running = true;
-  try {
+  return exclusive(async () => {
     const store = await load();
     const library = await getLibrary();
 
@@ -135,6 +207,8 @@ export async function dreamTick(): Promise<TickResult> {
       file,
       provider: activeProvider(),
       ts: Date.now(),
+      status: "pending",
+      generation: 0,
     });
     for (const d of batch) store.descriptions[d.id].used = true;
     await persist();
@@ -146,12 +220,27 @@ export async function dreamTick(): Promise<TickResult> {
       prompt,
       provider: activeProvider(),
     };
-  } finally {
-    running = false;
-  }
+  });
 }
 
-// fire-and-forget trigger for the swipe path
+// fire-and-forget trigger for the swipe path. coalesces fast swipes into a single
+// tick, but re-runs once if new keeps arrived mid-tick (so none are missed).
+let tickRunning = false;
+let tickDirty = false;
+function runTick(): void {
+  tickRunning = true;
+  tickDirty = false;
+  void dreamTick()
+    .catch(() => {})
+    .finally(() => {
+      tickRunning = false;
+      if (tickDirty) runTick();
+    });
+}
 export function scheduleDream(): void {
-  void dreamTick().catch(() => {});
+  if (tickRunning) {
+    tickDirty = true;
+    return;
+  }
+  runTick();
 }

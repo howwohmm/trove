@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Dream } from "@/lib/dreams";
+import { DreamDeck } from "@/components/DreamDeck";
 
 interface DreamData {
   dreams: Dream[];
@@ -13,12 +14,16 @@ interface DreamData {
 export default function DreamsPage() {
   const [data, setData] = useState<DreamData | null>(null);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     fetch("/api/dreams")
       .then((r) => r.json())
       .then(setData)
-      .catch(() => setData({ dreams: [], provider: "", enabled: false }));
+      .catch(() => setData({ dreams: [], provider: "", hasProvider: false, enabled: false }));
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   if (!data) return <p className="hint">loading dreams…</p>;
 
@@ -41,6 +46,9 @@ export default function DreamsPage() {
       </p>
     );
 
+  const pending = data.dreams.filter((d) => !d.status || d.status === "pending");
+  const kept = data.dreams.filter((d) => d.status === "kept");
+
   if (data.dreams.length === 0)
     return (
       <p className="hint">
@@ -50,25 +58,36 @@ export default function DreamsPage() {
     );
 
   return (
-    <div className="lib">
-      <p className="lib-head">
-        {data.dreams.length} dreamed · generated in your taste · {data.provider}
-      </p>
-      <div className="grid">
-        {data.dreams.map((d) => (
-          <a
-            key={d.id}
-            className="tile"
-            href={`/api/gen/${d.file}`}
-            target="_blank"
-            rel="noreferrer"
-            title={d.prompt}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/gen/${d.file}`} alt={d.prompt} loading="lazy" />
-          </a>
-        ))}
+    <>
+      {pending.length > 0 && <DreamDeck pending={pending} onSwiped={refresh} />}
+
+      <div className="lib">
+        <p className="lib-head">
+          {kept.length} bred · the dreams you kept · {data.provider}
+        </p>
+        {kept.length === 0 ? (
+          <p className="hint" style={{ marginTop: "2rem" }}>
+            judge the dreams above — the ones you keep land here and breed the
+            next generation.
+          </p>
+        ) : (
+          <div className="grid">
+            {kept.map((d) => (
+              <a
+                key={d.id}
+                className="tile"
+                href={`/api/gen/${d.file}`}
+                target="_blank"
+                rel="noreferrer"
+                title={d.prompt}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/api/gen/${d.file}`} alt={d.prompt} loading="lazy" />
+              </a>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
