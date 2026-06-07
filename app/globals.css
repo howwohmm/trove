@@ -539,6 +539,70 @@ textarea:focus {
   height: 60px;
   opacity: 0.6;
 }
+
+/* ================= taste map — open pannable/zoomable canvas ================= */
+.map-wrap {
+  position: fixed;
+  inset: 0;
+  padding-top: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: grab;
+}
+.map-wrap:active {
+  cursor: grabbing;
+}
+.map-hint {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  font-size: 0.72rem;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  pointer-events: none;
+}
+.map-canvas {
+  position: relative;
+  transform-origin: center;
+  flex: none;
+}
+.map-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px -14px rgba(0, 0, 0, 0.5);
+  transition: transform 0.18s ease, z-index 0s, box-shadow 0.18s ease;
+  background: var(--surface);
+}
+.map-node:hover {
+  transform: translate(-50%, -50%) scale(1.7);
+  z-index: 10;
+  box-shadow: 0 20px 50px -16px rgba(0, 0, 0, 0.7);
+}
+.map-node img {
+  width: 100%;
+  display: block;
+}
+.map-label {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  font-size: 0.6rem;
+  padding: 0.2rem 0.35rem;
+  color: #fff;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+  letter-spacing: 0.02em;
+}
 .burst {
   display: none;
 }
