@@ -5,18 +5,36 @@ import type { LibraryItem } from "@/lib/types";
 import { optimized } from "@/lib/imgix";
 
 export default function LibraryPage() {
-  const [items, setItems] = useState<LibraryItem[] | null>(null);
+  const [all, setAll] = useState<LibraryItem[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<LibraryItem[] | null>(null); // null = showing all
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     fetch("/api/library")
       .then((r) => r.json())
-      .then((d: { library: LibraryItem[] }) => setItems(d.library))
-      .catch(() => setItems([]));
+      .then((d: { library: LibraryItem[] }) => setAll(d.library))
+      .catch(() => setAll([]));
   }, []);
 
-  if (items === null) return <p className="hint">loading library…</p>;
+  const runSearch = async (q: string) => {
+    if (!q.trim()) {
+      setResults(null);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+      const d = (await res.json()) as { results: LibraryItem[] };
+      setResults(d.results);
+    } finally {
+      setSearching(false);
+    }
+  };
 
-  if (items.length === 0)
+  if (all === null) return <p className="hint">loading library…</p>;
+
+  if (all.length === 0)
     return (
       <p className="hint">
         nothing kept yet. go swipe — the ones you keep land here, and on disk in{" "}
@@ -24,10 +42,42 @@ export default function LibraryPage() {
       </p>
     );
 
+  const items = results ?? all;
+
   return (
     <div className="lib">
+      <div className="lib-search">
+        <input
+          className="lib-input"
+          placeholder="search your taste — try “rain on glass at dusk”"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") runSearch(query);
+            if (e.key === "Escape") {
+              setQuery("");
+              setResults(null);
+            }
+          }}
+        />
+        {results !== null && (
+          <button
+            className="chip"
+            onClick={() => {
+              setQuery("");
+              setResults(null);
+            }}
+          >
+            clear
+          </button>
+        )}
+      </div>
       <p className="lib-head">
-        {items.length} kept · files live in <code>/library</code>
+        {searching
+          ? "searching…"
+          : results !== null
+            ? `${items.length} matches for “${query}” · ranked by your taste`
+            : `${all.length} kept · files live in /library`}
       </p>
       <div className="masonry">
         {items.map((it) => (
@@ -39,7 +89,6 @@ export default function LibraryPage() {
             rel="noreferrer"
             title={it.author ? `${it.author} · ${it.source}` : it.source}
           >
-            {/* imgix-optimized, column-sized image; href opens the full-res local file */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={it.url ? optimized(it.url, 360) : `/api/img/${it.file}`} alt="" loading="lazy" />
           </a>

@@ -32,7 +32,6 @@ export default function RootLayout({
           <nav className="nav">
             <Link href="/">swipe</Link>
             <Link href="/library">library</Link>
-            <Link href="/map">map</Link>
             <Link href="/dreams">dreams</Link>
             <Link href="/tune">tune</Link>
             <Link href="/status">status</Link>
