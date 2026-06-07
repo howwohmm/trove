@@ -33,6 +33,7 @@ export default function RootLayout({
             <Link href="/">swipe</Link>
             <Link href="/library">library</Link>
             <Link href="/dreams">dreams</Link>
+            <Link href="/taste">taste</Link>
             <Link href="/tune">tune</Link>
             <Link href="/status">status</Link>
             <ThemeToggle />
