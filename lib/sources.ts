@@ -169,6 +169,95 @@ async function ensureUnsplash(
   return unsplashCache;
 }
 
+// ── pexels ────────────────────────────────────────────────────────────────
+// second image source, blended with unsplash for a richer corpus. active when
+// PEXELS_API_KEY is set. mirrors the unsplash retrieval shape: per-query cache,
+// growing in-memory pool, same Candidate mapping.
+
+interface PexelsPhoto {
+  id: number;
+  width: number;
+  height: number;
+  src: { large2x: string; large: string; original: string };
+  photographer: string;
+  photographer_url: string;
+  alt?: string;
+}
+
+let pexelsCache: Candidate[] = [];
+const fetchedPexelsQueries = new Set<string>();
+
+function mapPexelsPhoto(ph: PexelsPhoto): Candidate {
+  return {
+    id: `pexels-${ph.id}`,
+    url: ph.src.large,
+    downloadUrl: ph.src.original,
+    width: ph.width,
+    height: ph.height,
+    author: ph.photographer,
+    link: ph.photographer_url,
+    tags: ph.alt
+      ? ph.alt
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .filter((w) => w.length > 2)
+      : undefined,
+    source: "pexels",
+  };
+}
+
+function mergeIntoPexelsCache(photos: PexelsPhoto[]): void {
+  const have = new Set(pexelsCache.map((c) => c.id));
+  for (const ph of photos) {
+    if (have.has(`pexels-${ph.id}`)) continue;
+    pexelsCache.push(mapPexelsPhoto(ph));
+  }
+}
+
+// retrieval: pull pexels images relevant to a taste keyword. cached per query.
+async function searchPexels(query: string, key: string): Promise<void> {
+  const q = query.trim().toLowerCase();
+  if (!q || fetchedPexelsQueries.has(q)) return;
+  fetchedPexelsQueries.add(q);
+  try {
+    const res = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}` +
+        `&per_page=30&orientation=portrait`,
+      { headers: { Authorization: key }, cache: "no-store" }
+    );
+    if (!res.ok) return;
+    const data = (await res.json()) as { photos: PexelsPhoto[] };
+    mergeIntoPexelsCache(data.photos ?? []);
+  } catch {
+    // keep whatever we have
+  }
+}
+
+// fill the pexels pool with taste-relevant photos (search by keywords).
+async function ensurePexels(
+  key: string,
+  seen: Set<string>,
+  queries?: string[]
+): Promise<Candidate[]> {
+  const qs = queries ?? (await libraryTagQueries());
+  for (const q of qs) {
+    if (pexelsCache.filter((c) => !seen.has(c.id)).length >= 40) break;
+    await searchPexels(q, key);
+  }
+  return pexelsCache;
+}
+
+function dedupeById(items: Candidate[]): Candidate[] {
+  const seen = new Set<string>();
+  const out: Candidate[] = [];
+  for (const c of items) {
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push(c);
+  }
+  return out;
+}
+
 export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -185,9 +274,20 @@ export async function getFreshPool(
   limit = 200,
   opts?: { queries?: string[] }
 ): Promise<Candidate[]> {
-  const key = process.env.UNSPLASH_ACCESS_KEY;
-  const pool = key
-    ? await ensureUnsplash(key, seen, opts?.queries)
-    : await fetchPicsumPool();
+  const unsplashKey = process.env.UNSPLASH_ACCESS_KEY;
+  const pexelsKey = process.env.PEXELS_API_KEY;
+
+  let pool: Candidate[];
+  if (unsplashKey || pexelsKey) {
+    // blend whatever source keys are present. each contributes its own
+    // taste-relevant pool; we concat + dedupe by id so the corpus is richer.
+    const parts: Candidate[][] = [];
+    if (unsplashKey) parts.push(await ensureUnsplash(unsplashKey, seen, opts?.queries));
+    if (pexelsKey) parts.push(await ensurePexels(pexelsKey, seen, opts?.queries));
+    pool = dedupeById(parts.flat());
+  } else {
+    // no source key at all — picsum fallback (zero config).
+    pool = await fetchPicsumPool();
+  }
   return pool.filter((c) => !seen.has(c.id)).slice(0, limit);
 }

@@ -9,6 +9,7 @@ export default function LibraryPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<LibraryItem[] | null>(null); // null = showing all
   const [searching, setSearching] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/library")
@@ -43,6 +44,25 @@ export default function LibraryPage() {
     );
 
   const items = results ?? all;
+
+  const copyImage = async (it: LibraryItem) => {
+    try {
+      const res = await fetch(`/api/img/${it.file}`);
+      const blob = await res.blob();
+      // normalize to png — broadest clipboard-image support
+      const bmp = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      canvas.getContext("2d")?.drawImage(bmp, 0, 0);
+      const png: Blob = await new Promise((r) => canvas.toBlob((b) => r(b!), "image/png"));
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+      setCopied(it.id);
+      setTimeout(() => setCopied(null), 1200);
+    } catch {
+      setCopied(null);
+    }
+  };
 
   return (
     <div className="lib">
@@ -81,17 +101,15 @@ export default function LibraryPage() {
       </p>
       <div className="masonry">
         {items.map((it) => (
-          <a
-            key={it.id}
-            className="tile"
-            href={`/api/img/${it.file}`}
-            target="_blank"
-            rel="noreferrer"
-            title={it.author ? `${it.author} · ${it.source}` : it.source}
-          >
+          <figure className="tile" key={it.id} title={it.author ? `${it.author} · ${it.source}` : it.source}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={it.url ? optimized(it.url, 360) : `/api/img/${it.file}`} alt="" loading="lazy" />
-          </a>
+            <figcaption className="tile-actions">
+              <button onClick={() => copyImage(it)}>{copied === it.id ? "copied ✓" : "copy"}</button>
+              <a href={`/api/img/${it.file}`} download>save</a>
+              <a href={`/api/img/${it.file}`} target="_blank" rel="noreferrer">open</a>
+            </figcaption>
+          </figure>
         ))}
       </div>
     </div>

@@ -1,6 +1,6 @@
 // shared types for trove — a personal taste-curation tool
 
-export type Source = "picsum" | "unsplash";
+export type Source = "picsum" | "unsplash" | "pexels";
 
 // a candidate image to swipe on
 export interface Candidate {

@@ -6,6 +6,7 @@ import { getLibrary } from "./store";
 import { getEmbedding } from "./embeddings";
 import { hasClaude, labelFacet } from "./claude";
 import { getMeta, setMeta } from "./db";
+import { cosine } from "./taste";
 
 const RECOMPUTE_DELTA = 5; // recompute after this many new keeps
 const MIN_TO_CLUSTER = 6;
@@ -68,12 +69,30 @@ function l2(v: number[]): number[] {
 }
 function kmeans(vectors: number[][], k: number, iters = 15) {
   k = Math.min(k, vectors.length);
-  const idx = vectors.map((_, i) => i);
-  for (let i = idx.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [idx[i], idx[j]] = [idx[j], idx[i]];
+  // Deterministic k-means++ seeding: fixed first pick (index 0), then each next
+  // centroid is the point farthest (max squared distance to its nearest chosen
+  // centroid). Ties broken by lowest index. No randomness -> stable clusters
+  // across recomputes for the same input.
+  const chosen: number[] = [0];
+  while (chosen.length < k) {
+    let bestIdx = -1;
+    let bestD = -Infinity;
+    for (let n = 0; n < vectors.length; n++) {
+      if (chosen.includes(n)) continue;
+      let nearest = Infinity;
+      for (const c of chosen) {
+        const d = dist2(vectors[n], vectors[c]);
+        if (d < nearest) nearest = d;
+      }
+      if (nearest > bestD) {
+        bestD = nearest;
+        bestIdx = n;
+      }
+    }
+    if (bestIdx < 0) break;
+    chosen.push(bestIdx);
   }
-  let centroids = idx.slice(0, k).map((i) => vectors[i].slice());
+  let centroids = chosen.map((i) => vectors[i].slice());
   const assign = new Array(vectors.length).fill(0);
   for (let it = 0; it < iters; it++) {
     for (let n = 0; n < vectors.length; n++) {
@@ -141,7 +160,7 @@ export async function computeFacets(): Promise<void> {
         }
       }
       facets.push({
-        id: `facet-${c + 1}`,
+        id: "", // assigned below for stability across recomputes
         label,
         queries,
         centroid: centroids[c],
@@ -150,6 +169,54 @@ export async function computeFacets(): Promise<void> {
       });
     }
     facets.sort((a, b) => b.size - a.size);
+
+    // Stable IDs: carry forward the id of the most-similar previous facet
+    // (cosine >= MATCH_THRESHOLD). Each previous facet can only be claimed once
+    // (greedy by best match). Genuinely new clusters get a fresh facet-N where
+    // N = max existing numeric id + 1, so ids never collide or get reused.
+    const prev = load().facets;
+    const claimed = new Set<string>();
+    let maxNum = 0;
+    for (const p of prev) {
+      const m = /^facet-(\d+)$/.exec(p.id);
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    }
+
+    // order new facets by their best available match so strongest matches win
+    const order = facets
+      .map((f, i) => {
+        let best = -Infinity;
+        for (const p of prev) {
+          const s = cosine(f.centroid, p.centroid);
+          if (s > best) best = s;
+        }
+        return { i, best };
+      })
+      .sort((a, b) => b.best - a.best)
+      .map((x) => x.i);
+
+    const MATCH_THRESHOLD = 0.6;
+    for (const i of order) {
+      const f = facets[i];
+      let bestId = "";
+      let bestSim = MATCH_THRESHOLD;
+      for (const p of prev) {
+        if (claimed.has(p.id)) continue;
+        const s = cosine(f.centroid, p.centroid);
+        if (s >= bestSim) {
+          bestSim = s;
+          bestId = p.id;
+        }
+      }
+      if (bestId) {
+        f.id = bestId;
+        claimed.add(bestId);
+      }
+    }
+    for (const f of facets) {
+      if (!f.id) f.id = `facet-${++maxNum}`;
+    }
+
     persist({ facets, count: lib.length });
   } finally {
     computing = false;
