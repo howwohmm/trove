@@ -95,8 +95,9 @@ export async function GET(req: Request) {
   const rankedIds = new Set(ranked.map((c) => c.id));
   const explore = shuffle(pool.filter((c) => !rankedIds.has(c.id))).slice(0, n - ranked.length);
 
-  // keep warming the corpus so the rankable pool grows
-  warmEmbeddings(pool.filter((c) => !emb[c.id]).slice(0, 16));
+  // keep warming the corpus so the rankable pool grows (bigger batch → ranking
+  // applies to a meaningful pool sooner, not just a thin slice)
+  warmEmbeddings(pool.filter((c) => !emb[c.id]).slice(0, 40));
 
   return NextResponse.json({
     candidates: weave(ranked, explore),

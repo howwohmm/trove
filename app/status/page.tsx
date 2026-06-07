@@ -13,6 +13,19 @@ interface Status {
   taste: { keeps: number; facets: { label: string; size: number }[]; keepRate: number };
   pool: { corpus: number; embedded: number; swipes: number };
   dreams: { pending: number; kept: number; total: number };
+  pipeline: {
+    running: boolean;
+    lastResult: { generated: boolean; described: number; at: number } | null;
+    lastError: { message: string; at: number } | null;
+  };
+}
+
+function ago(ts?: number): string {
+  if (!ts) return "—";
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  return `${Math.round(s / 3600)}h ago`;
 }
 
 function Row({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "red" | "yellow" }) {
@@ -96,13 +109,30 @@ export default function StatusPage() {
 
       <h2>pool</h2>
       <Row label="corpus (rankable)" value={s.pool.corpus} />
-      <Row label="embedded" value={s.pool.embedded} />
+      <Row
+        label="embedded"
+        value={`${s.pool.embedded} (${s.pool.corpus ? Math.round((s.pool.embedded / s.pool.corpus) * 100) : 0}%)`}
+      />
       <Row label="total swipes" value={s.pool.swipes} />
 
       <h2>dreams</h2>
       <Row label="to judge" value={s.dreams.pending} tone={s.dreams.pending > 0 ? "yellow" : undefined} />
       <Row label="kept" value={s.dreams.kept} />
       <Row label="generated total" value={s.dreams.total} />
+
+      <h2>pipeline</h2>
+      <Row label="dream engine" value={s.pipeline.running ? "running…" : "idle"} />
+      <Row
+        label="last run"
+        value={
+          s.pipeline.lastResult
+            ? `${s.pipeline.lastResult.generated ? "generated a dream" : "no dream"} · ${ago(s.pipeline.lastResult.at)}`
+            : "—"
+        }
+      />
+      {s.pipeline.lastError && (
+        <Row label="last error" value={`${s.pipeline.lastError.message.slice(0, 40)} · ${ago(s.pipeline.lastError.at)}`} tone="red" />
+      )}
     </div>
   );
 }

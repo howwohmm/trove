@@ -38,7 +38,7 @@ export async function cachedEmbeddings(): Promise<Record<string, number[]>> {
 }
 
 // embed a batch of candidates in the background to warm the cache.
-export function warmEmbeddings(items: { id: string; url: string }[], max = 12): void {
+export function warmEmbeddings(items: { id: string; url: string }[], max = 40): void {
   const todo = items.slice(0, max);
   void (async () => {
     for (const it of todo) {

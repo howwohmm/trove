@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { recordSwipe, addToLibrary, saveImageFile, updateTaste } from "@/lib/store";
 import { getEmbedding } from "@/lib/embeddings";
 import { scheduleDream } from "@/lib/dreams";
@@ -48,9 +48,11 @@ export async function POST(req: Request) {
       } catch {
         // embedding/model may still be warming up — the keep is already saved
       }
-      // background: refresh taste facets + run the dream pipeline
-      scheduleFacets();
-      scheduleDream();
+      // background work, scheduled to run after the response is sent
+      after(() => {
+        scheduleFacets();
+        scheduleDream();
+      });
     } catch (e) {
       // swipe is recorded; surface download failure but don't 500 the swipe
       return NextResponse.json(

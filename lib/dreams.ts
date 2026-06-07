@@ -102,14 +102,17 @@ export async function getDreams(): Promise<Dream[]> {
   return (await load()).dreams;
 }
 
-// record a swipe verdict on a dream
+// record a swipe verdict on a dream — through the serial queue so it can't
+// collide with an in-flight tick/breed persist()
 export async function markDream(id: string, status: DreamStatus): Promise<void> {
-  const store = await load();
-  const d = store.dreams.find((x) => x.id === id);
-  if (d) {
-    d.status = status;
-    await persist();
-  }
+  return exclusive(async () => {
+    const store = await load();
+    const d = store.dreams.find((x) => x.id === id);
+    if (d) {
+      d.status = status;
+      persist();
+    }
+  });
 }
 
 // breed a kept dream: mutate its prompt and generate a child (next generation).
@@ -332,13 +335,32 @@ export async function dreamTick(): Promise<TickResult> {
 // tick, but re-runs once if new keeps arrived mid-tick (so none are missed).
 let tickRunning = false;
 let tickDirty = false;
+
+// observable pipeline status (surfaced in /api/status)
+const pipeline = {
+  running: false,
+  lastResult: null as (TickResult & { at: number }) | null,
+  lastError: null as { message: string; at: number } | null,
+};
+export function getDreamPipelineStatus() {
+  return pipeline;
+}
+
 function runTick(): void {
   tickRunning = true;
   tickDirty = false;
+  pipeline.running = true;
   void dreamTick()
-    .catch(() => {})
+    .then((r) => {
+      pipeline.lastResult = { ...r, at: Date.now() };
+    })
+    .catch((e) => {
+      pipeline.lastError = { message: String(e), at: Date.now() };
+      console.error("[trove] dream tick failed:", e);
+    })
     .finally(() => {
       tickRunning = false;
+      pipeline.running = false;
       if (tickDirty) runTick();
     });
 }

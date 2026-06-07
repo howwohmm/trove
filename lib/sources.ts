@@ -191,12 +191,3 @@ export async function getFreshPool(
     : await fetchPicsumPool();
   return pool.filter((c) => !seen.has(c.id)).slice(0, limit);
 }
-
-// cold-start helper: up to n unseen candidates, shuffled.
-export async function getCandidates(
-  n: number,
-  seen: Set<string>
-): Promise<Candidate[]> {
-  const fresh = await getFreshPool(seen, 500);
-  return shuffle(fresh).slice(0, n);
-}

@@ -4,31 +4,36 @@ import { getCorpus } from "@/lib/corpus";
 import { cachedEmbeddings } from "@/lib/embeddings";
 import { readState } from "@/lib/store";
 import { getFacets } from "@/lib/facets";
-import { getDreams } from "@/lib/dreams";
+import { getDreams, getDreamPipelineStatus } from "@/lib/dreams";
 import { hasClaude } from "@/lib/claude";
 import { providerLabel, activeProvider } from "@/lib/generate";
 
 export const dynamic = "force-dynamic";
 
-// openrouter credits — this metadata call is free / doesn't spend credits
-async function openrouterCredits() {
+// openrouter credits — cached 60s so the 8s status poll doesn't hammer their API
+type OrCredits = { usage: number | null; limit: number | null; remaining: number | null };
+let orCache: { data: OrCredits | null; at: number } | null = null;
+async function openrouterCredits(): Promise<OrCredits | null> {
   if (!process.env.OPENROUTER_API_KEY) return null;
+  if (orCache && Date.now() - orCache.at < 60_000) return orCache.data;
   try {
     const res = await fetch("https://openrouter.ai/api/v1/key", {
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}` },
       cache: "no-store",
     });
-    if (!res.ok) return null;
+    if (!res.ok) return orCache?.data ?? null;
     const d = (await res.json()) as {
       data?: { usage?: number; limit?: number | null; limit_remaining?: number | null };
     };
-    return {
+    const data: OrCredits = {
       usage: d.data?.usage ?? null,
       limit: d.data?.limit ?? null,
       remaining: d.data?.limit_remaining ?? null,
     };
+    orCache = { data, at: Date.now() };
+    return data;
   } catch {
-    return null;
+    return orCache?.data ?? null;
   }
 }
 
@@ -76,5 +81,6 @@ export async function GET() {
       swipes: swipes.length,
     },
     dreams: { pending, kept, total: dreams.length },
+    pipeline: getDreamPipelineStatus(),
   });
 }
