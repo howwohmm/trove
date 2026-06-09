@@ -1,15 +1,18 @@
-/* quiet dark — locked. #262626 warm dark, manrope 300/400, lowercase, text-first. */
+/* trove — "darkroom". locked contract: specs/design-contract.md
+   warm near-black ladder · one safelight accent (keep-moments only) ·
+   manrope 300/400 + system mono for metadata · grain · chrome chroma ≤0.01 */
 
 :root {
-  --bg: #262626;
-  --bg-raised: #2d2d2d;
-  --fg: #e8e6e1;
-  --muted: #8a877f;
-  --faint: #4a4a46;
-  --line: #343431;
-  --keep: #9db89d;
-  --skip: #b8908a;
-  --radius: 10px;
+  --bg0: oklch(0.21 0.006 75);
+  --bg: oklch(0.24 0.006 75);
+  --raised: oklch(0.27 0.006 75);
+  --line: oklch(0.33 0.006 75);
+  --fg: oklch(0.92 0.006 85);
+  --muted: oklch(0.63 0.01 80);
+  --faint: oklch(0.45 0.008 80);
+  --safelight: oklch(0.75 0.13 60);
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+  --radius: 8px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,12 +28,36 @@ html, body {
 
 body { overscroll-behavior: none; }
 
+/* grain — the anti-slop signal. 3%, fixed, never interactive. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 input { font: inherit; color: inherit; }
+::selection { background: var(--faint); color: var(--bg); }
 
-::selection { background: var(--faint); }
+/* ---- locked type styles (never free-size) ---- */
+.t-display { font-size: 2.4rem; font-weight: 300; line-height: 1.15; text-transform: lowercase; }
+.t-title { font-size: 1.05rem; font-weight: 400; line-height: 1.3; }
+.t-copy { font-size: 0.9rem; font-weight: 300; line-height: 1.6; }
+.t-label { font-size: 0.78rem; font-weight: 400; line-height: 1.4; }
+.t-mono { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.08em; color: var(--muted); }
+.t-hint { font-size: 0.72rem; font-weight: 300; color: var(--faint); }
 
+h1, h2, h3 { font-weight: 400; text-transform: lowercase; }
+.muted { color: var(--muted); }
+.faint { color: var(--faint); }
+.small { font-size: 0.8rem; }
+
+/* ---- chrome ---- */
 .nav {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -39,12 +66,11 @@ input { font: inherit; color: inherit; }
   align-items: baseline;
   gap: 1.5rem;
   padding: 1.1rem 1.4rem;
-  background: linear-gradient(var(--bg) 55%, transparent);
+  background: linear-gradient(color-mix(in oklch, var(--bg) 92%, transparent) 55%, transparent);
   font-size: 0.85rem;
-  letter-spacing: 0.01em;
 }
 .nav .wordmark { font-weight: 400; margin-right: 0.5rem; }
-.nav a { color: var(--muted); transition: color 0.18s; }
+.nav a { color: var(--muted); transition: color 0.15s; }
 .nav a:hover, .nav a.active { color: var(--fg); }
 
 .page {
@@ -52,13 +78,13 @@ input { font: inherit; color: inherit; }
   padding: 4.5rem 1.4rem 2rem;
   max-width: 1280px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
 }
+.page > .page-body { flex: 1; }
 
-h1, h2, h3 { font-weight: 400; text-transform: lowercase; }
-
-.muted { color: var(--muted); }
-.faint { color: var(--faint); }
-.small { font-size: 0.8rem; }
+/* the deck lives in the void */
+.page--void { max-width: none; background: var(--bg0); }
 
 .chip {
   padding: 0.35rem 0.8rem;
@@ -67,12 +93,60 @@ h1, h2, h3 { font-weight: 400; text-transform: lowercase; }
   color: var(--muted);
   font-size: 0.78rem;
   white-space: nowrap;
-  transition: color 0.18s, border-color 0.18s;
+  transition: color 0.12s, border-color 0.12s;
 }
 .chip:hover { color: var(--fg); }
 .chip.on { color: var(--fg); border-color: var(--muted); }
 
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 1.5px solid var(--safelight);
+  outline-offset: 2px;
+}
+
+/* ---- footer-as-index ---- */
+.footer-index {
+  margin-top: 3.5rem;
+  padding: 1.2rem 0 0.4rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+.footer-index .run { display: flex; gap: 0.7rem; font-size: 0.78rem; }
+.footer-index .run a { color: var(--faint); transition: color 0.15s; }
+.footer-index .run a:hover { color: var(--fg); }
+
+/* ---- masonry: one continuous surface (cosmos) ---- */
+.cell-meta {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 1.4rem 0.5rem 0.35rem;
+  background: linear-gradient(transparent, oklch(0.1 0.005 75 / 0.75));
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* breathing loading state — no spinners in the darkroom */
+@keyframes breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.8; } }
+.breathing { animation: breathe 1.2s ease-in-out infinite; }
+
 @media (max-width: 640px) {
   .page { padding: 4rem 0.8rem 1.5rem; }
   .nav { padding: 1rem; gap: 1rem; }
+  .t-display { font-size: 1.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathing { animation: none; opacity: 0.6; }
+  * { scroll-behavior: auto !important; }
 }
