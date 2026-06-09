@@ -1,0 +1,29 @@
+{
+  "name": "trove",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "import-v1": "tsx scripts/import-v1.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.101.0",
+    "@huggingface/transformers": "^4.2.0",
+    "motion": "^12.40.0",
+    "next": "16.2.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "vitest": "^3.2.6"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+.env*
+data/
+data.backup-*/
+library/
+generated/
+.models/
+.DS_Store
