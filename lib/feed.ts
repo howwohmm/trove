@@ -285,6 +285,7 @@ function poolUnswiped(db: Db, t: TasteState, ids: string[], source: string, buck
 
 /** repool the local corpus: already-embedded, never-swiped images (rate-limit-proof) */
 function refillFromCorpus(db: Db, t: TasteState, bucket: Bucket, n: number): number {
+  if (n <= 0) return 0; // negative LIMIT in sqlite = unlimited — guard it
   const rows = db
     .prepare(
       `SELECT i.id, i.embedding FROM images i

@@ -195,7 +195,8 @@ export function computeFacets(
   prevFacets: { id: string; centroid: Float32Array }[],
   freshId: () => string,
   nowMs: number,
-  alpha = 0.9
+  // calibrated on the imported v1 library (401 keeps): 1.6 => 11 balanced facets
+  alpha = 1.6
 ): Facet[] {
   if (keeps.length === 0) return [];
   const groups = wardCluster(keeps, alpha);
