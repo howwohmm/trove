@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trove · brand book — darkroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0: oklch(0.21 0.006 75);
+  --bg: oklch(0.24 0.006 75);
+  --raised: oklch(0.27 0.006 75);
+  --line: oklch(0.33 0.006 75);
+  --fg: oklch(0.92 0.006 85);
+  --muted: oklch(0.63 0.010 80);
+  --faint: oklch(0.45 0.008 80);
+  --safelight: oklch(0.75 0.13 60);
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:"Manrope",sans-serif;
+  font-weight:300;
+  font-size:0.9rem;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:0.03;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+::selection{background:var(--safelight);color:var(--bg0)}
+a{color:var(--fg);text-decoration:none;border-bottom:1px solid var(--line);transition:border-color .15s ease-out,color .15s ease-out}
+a:hover{border-color:var(--muted)}
+.wrap{display:grid;grid-template-columns:200px minmax(0,640px);gap:72px;max-width:1000px;margin:0 auto;padding:0 32px}
+/* toc */
+nav.toc{position:sticky;top:0;align-self:start;height:100vh;display:flex;flex-direction:column;justify-content:center;gap:7px;font-size:0.78rem;font-weight:400}
+nav.toc a{border:none;color:var(--faint);display:block;line-height:1.5;transition:color .15s ease-out}
+nav.toc a:hover{color:var(--fg)}
+nav.toc a .n{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.08em;margin-right:10px;color:var(--faint)}
+nav.toc .brand{font-weight:300;color:var(--fg);margin-bottom:20px;font-size:0.9rem}
+nav.toc .brand span{color:var(--faint)}
+/* main */
+main{padding:18vh 0 0}
+section{padding:0 0 13vh;scroll-margin-top:12vh}
+.sn{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;color:var(--muted);display:block;margin-bottom:14px}
+h1{font-size:2.4rem;font-weight:300;line-height:1.15;text-transform:lowercase;letter-spacing:-0.01em}
+h2{font-size:1.6rem;font-weight:300;line-height:1.2;text-transform:lowercase;margin-bottom:28px;letter-spacing:-0.005em}
+h3{font-size:1.05rem;font-weight:400;line-height:1.3;text-transform:lowercase;margin:36px 0 10px}
+p{margin-bottom:16px;color:var(--fg)}
+p.muted{color:var(--muted)}
+.hint{font-size:0.72rem;font-weight:300;color:var(--faint)}
+.mono{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;color:var(--muted)}
+.foot{font-family:var(--mono);font-size:0.64rem;letter-spacing:0.06em;color:var(--faint);line-height:2;margin:10px 0 26px;word-break:break-all}
+.foot a{color:var(--faint);border-bottom:1px solid transparent}
+.foot a:hover{color:var(--muted);border-color:var(--line)}
+em{font-style:normal;color:var(--safelight)}
+hr{border:none;border-top:1px solid var(--line);margin:36px 0}
+/* hero */
+.hero{min-height:78vh;display:flex;flex-direction:column;justify-content:center;padding-bottom:6vh}
+.hero h1{font-size:3.2rem;margin-bottom:24px}
+.hero .sub{color:var(--muted);max-width:46ch}
+/* explorations */
+.dir{background:var(--bg0);border:1px solid var(--line);border-radius:8px;padding:28px;margin-bottom:14px;transition:border-color .15s ease-out}
+.dir:hover{border-color:var(--muted)}
+.dir h3{margin-top:0}
+.dir .spec{font-family:var(--mono);font-size:0.66rem;letter-spacing:0.06em;color:var(--faint);line-height:1.9;margin:0}
+.verdict{border-left:2px solid var(--safelight);padding-left:24px;margin-top:40px}
+/* refusals */
+.refusals{font-size:1.7rem;font-weight:300;line-height:1.7;text-transform:lowercase;letter-spacing:-0.005em}
+.refusals div{transition:color .2s ease-out;color:var(--fg)}
+.refusals div:hover{color:var(--muted)}
+.refusals .law{color:var(--muted);font-size:1.15rem;margin-top:28px}
+/* swatches */
+.swatch{display:grid;grid-template-columns:64px 90px 1fr;gap:18px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.swatch:last-of-type{border-bottom:none}
+.chip{height:40px;border-radius:4px;border:1px solid var(--line)}
+.swatch .name{font-size:0.78rem;font-weight:400}
+.swatch .val{font-family:var(--mono);font-size:0.64rem;letter-spacing:0.06em;color:var(--muted)}
+.swatch .use{font-size:0.72rem;color:var(--faint)}
+/* type specimens */
+.spec-row{padding:22px 0;border-bottom:1px solid var(--line)}
+.spec-row:last-of-type{border-bottom:none}
+.spec-row .ann{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.08em;color:var(--faint);display:block;margin-bottom:8px}
+.s-display{font-size:2.4rem;font-weight:300;line-height:1.15;text-transform:lowercase}
+.s-title{font-size:1.05rem;font-weight:400;line-height:1.3}
+.s-copy{font-size:0.9rem;font-weight:300;line-height:1.6}
+.s-label{font-size:0.78rem;font-weight:400;line-height:1.4}
+.s-mono{font-family:var(--mono);font-size:0.68rem;letter-spacing:0.08em;color:var(--muted)}
+.s-hint{font-size:0.72rem;font-weight:300;color:var(--faint)}
+/* code */
+pre{background:var(--bg0);border:1px solid var(--line);border-radius:8px;padding:22px;font-family:var(--mono);font-size:0.68rem;letter-spacing:0.04em;line-height:1.8;color:var(--muted);overflow-x:auto;margin-bottom:20px}
+pre .k{color:var(--fg)}
+/* tables / lists */
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 20px;margin-bottom:20px}
+.kv .k{font-size:0.78rem;font-weight:400;color:var(--fg)}
+.kv .v{font-size:0.82rem;color:var(--muted)}
+ul.plain{list-style:none}
+ul.plain li{padding:6px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:0.85rem}
+ul.plain li:last-child{border:none}
+ul.plain li b{font-weight:400;color:var(--fg)}
+.quote{font-size:1.15rem;font-weight:300;line-height:1.6;color:var(--fg);margin:28px 0;padding-left:24px;border-left:1px solid var(--line)}
+/* surfaces */
+.surface{margin-bottom:34px}
+.surface .path{font-family:var(--mono);font-size:0.72rem;letter-spacing:0.08em;color:var(--fg);margin-bottom:6px;display:block}
+.surface .attr{font-family:var(--mono);font-size:0.62rem;letter-spacing:0.06em;color:var(--faint);display:block;margin-top:8px;line-height:1.8}
+/* voice strings */
+.strings div{padding:12px 0;border-bottom:1px solid var(--line);font-size:1.02rem;font-weight:300;color:var(--fg)}
+.strings div:last-child{border:none}
+.strings .ctx{font-family:var(--mono);font-size:0.6rem;letter-spacing:0.08em;color:var(--faint);display:block;margin-top:4px}
+/* colophon */
+.colophon{padding:10vh 0 14vh;border-top:1px solid var(--line);font-family:var(--mono);font-size:0.66rem;letter-spacing:0.08em;color:var(--faint);line-height:2.2}
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr;gap:0;padding:0 24px}
+  nav.toc{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:6px 16px;padding:32px 0 0;justify-content:flex-start}
+  nav.toc .brand{width:100%}
+  main{padding-top:8vh}
+  .hero h1{font-size:2.4rem}
+  .refusals{font-size:1.25rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc" aria-label="contents">
+  <div class="brand">trove <span>· brand book</span></div>
+  <a href="#foreword"><span class="n">01</span>foreword</a>
+  <a href="#research"><span class="n">02</span>research</a>
+  <a href="#explorations"><span class="n">03</span>three explorations</a>
+  <a href="#refusals"><span class="n">04</span>refusals</a>
+  <a href="#color"><span class="n">05</span>color</a>
+  <a href="#typography"><span class="n">06</span>typography</a>
+  <a href="#space"><span class="n">07</span>space &amp; shape</a>
+  <a href="#motion"><span class="n">08</span>motion</a>
+  <a href="#voice"><span class="n">09</span>voice</a>
+  <a href="#surfaces"><span class="n">10</span>the surfaces</a>
+  <a href="#stack"><span class="n">11</span>stack</a>
+</nav>
+
+<main>
+
+<header class="hero">
+  <span class="mono">trove · design direction · locked 10 jun 2026</span>
+  <h1>darkroom</h1>
+  <p class="sub">a quiet place where your taste develops. the machine works overnight; you walk in, judge contact sheets, and prints emerge. everything is warm near-black. the only color in the room is the safelight — and your images.</p>
+</header>
+
+<section id="foreword">
+  <span class="sn">01</span>
+  <h2>foreword</h2>
+  <p>trove is a personal taste engine. you swipe through a pool of images, keep the ones that move you, let the rest go. the engine learns what you keep, names the facets of your taste, and dreams new images from it overnight. it runs for exactly one person, on one machine. local-first. no accounts, no cloud, no one else's algorithm.</p>
+  <p>this book exists because v1 didn't have one. without a locked direction, the interface thrashed — fifteen hundred lines of theme churn, three aesthetic restarts, a ui that kept asking what it wanted to be. v2 was rebuilt on real engineering research from pinterest and meta's retrieval work; the product logic is now sound. this book does the same for the brand: it goes deep once, decides once, and locks. everything the ui will ever need to know about how it looks, moves, and speaks lives here and in the design contract this book expands.</p>
+  <p class="muted">the contract is binding. the research behind it is below, so the decisions can be trusted without being reopened.</p>
+</section>
+
+<section id="research">
+  <span class="sn">02</span>
+  <h2>research — where we looked</h2>
+
+  <h3>design systems &amp; engineering blogs</h3>
+  <p>linear rebuilt its entire theme system on three lch variables — base color, contrast, saturation — and derives every surface from them; its later density work showed that different surfaces deserve different breathing room within one system. vercel's geist locks a small set of named type styles and a ten-step color scale with semantic aliases, so no one ever free-sizes text again. raycast runs a tight dark surface ladder with a single accent and absolute discipline about where it appears. apple's hig codifies dark-mode elevation-by-lightness and warns against high-frequency motion; material 3 publishes motion as tokens — named springs and durations, not ad-hoc values. and stripe gave the whole quiet-craft thesis a number: a redesign of one email, changing nothing but craft, converted twenty percent better. care is measurable.</p>
+  <p class="foot">linear.app/blog/how-we-redesigned-the-linear-ui · vercel.com/geist · raycast.com · developer.apple.com/design/human-interface-guidelines · m3.material.io/styles/motion · stripe.com/blog</p>
+
+  <h3>studios</h3>
+  <p>darkroom.engineering publishes its work as a timestamped activity log — process as interface. metalab splices two type voices in one headline and lets that be the whole identity. makemepulse ends sentences with an underscore_ and owns the tic. daybreak.studio's farewell page is the most instructive: almost nothing on screen, and the absence is the design. godly.studio navigates with inline text runs and a before/after toggle instead of chrome. locomotive allows itself exactly one quirk per project and executes it perfectly. 14islands paces long pages with caption-pair rhythm — image, two short mono lines, repeat. basement.studio assumes you have a keyboard and rewards you for it.</p>
+  <p class="foot">darkroom.engineering · metalab.com · makemepulse.com · daybreak.studio · godly.website · locomotive.ca · 14islands.com · basement.studio</p>
+
+  <h3>galleries — what quiet looks like in 2025–26</h3>
+  <p>reading across minimal.gallery, siteinspire, and the dark end of awwwards, the same patterns recur in the best restrained work: type scales collapsed to two sizes, technical mono annotations as the only accent, fades kept short and rare, and — increasingly — film grain as a deliberate texture. grain has become the anti-slop signal: the visible mark of a made thing in a feed of generated ones.</p>
+  <p class="foot">minimal.gallery · siteinspire.com · awwwards.com/websites/dark</p>
+
+  <h3>products — the direct ancestors</h3>
+  <p>cosmos.so renders saved images as a gapless, sharp-cornered masonry — one continuous surface, no cards. mymind's manifesto is written almost entirely in negations (no likes, no follows, no social pressure) and treats serendipity as a feature. savee's brand position is the refusal of the algorithm. are.na chose "connect" as its verb and built a culture from one word. pinterest's foundational principle is to let the content be the interface — the chrome recedes to near-invisibility. tinder's drag gives pre-commit feedback before you release, which is why a swipe feels like a judgment and not a button. photo mechanic, the tool working photographers actually cull with, auto-advances after every verdict — the next frame is already there. and spotify wrapped proved that data about yourself lands hardest as one insight per screen, never a dashboard.</p>
+  <p class="foot">cosmos.so · mymind.com · savee.it · are.na · pinterest.com · tinder.com · camerabits.com (photo mechanic) · spotify.com/wrapped</p>
+
+  <h3>a note on honesty</h3>
+  <p class="muted">deck.studio was requested as a reference and does not exist — dead dns, a domain parked since 2021. godly.studio and daybreak.studio covered the ground it was presumed to occupy. recording this here so the citation trail stays clean.</p>
+</section>
+
+<section id="explorations">
+  <span class="sn">03</span>
+  <h2>three explorations</h2>
+  <p class="muted">three full art directions were developed as equals before one was chosen. each could carry the product. only one is true to it.</p>
+
+  <div class="dir">
+    <h3>night archive</h3>
+    <p>a private museum after closing. you walk the halls of your own collection with a flashlight; every image hangs with a small printed card beneath it. the interface is an institution of one — catalog index cards, contact-sheet caption pairs, the hush of a vault at night. dignified, slightly formal, deeply quiet.</p>
+    <p class="spec">type — manrope + mono caption pairs under every image<br>color — #1a1a1a neutral black, archival off-white text, no accent<br>layout — catalog index cards, generous plinth spacing<br>motion — 400ms fades only, nothing moves laterally</p>
+  </div>
+
+  <div class="dir">
+    <h3>darkroom</h3>
+    <p>the photographic process itself. warm near-black like a room lit only by a safelight; images develop in from grain and blur the way prints emerge in trays. the amber accent is reserved exclusively for the things you keep and love — the safelight glow on a print worth saving. the status page reads as lab notes. patient, warm, chemical.</p>
+    <p class="spec">type — manrope 300/400, system mono as lab-note metadata<br>color — warm near-black ladder (hue 75), one safelight accent, images as the only color<br>layout — one card in a void; gapless contact-sheet masonry<br>motion — develop-in (blur + brightness → clear), velocity-carrying exits, breathing opacity instead of spinners</p>
+  </div>
+
+  <div class="dir">
+    <h3>the quiet ledger</h3>
+    <p>text-first, are.na crossed with daybreak. typography carries everything; images do not appear until words summon them. the app reads as a notebook that happens to contain pictures — entries, indexes, marginalia. no accent color at all. the most radical of the three, and the most demanding of its reader.</p>
+    <p class="spec">type — typography is the entire interface, display sizes do the work<br>color — ground and ink only, zero accent<br>layout — single text column, images inline on demand<br>motion — near none; instant text, 120ms fades at most</p>
+  </div>
+
+  <div class="verdict">
+    <h3>the verdict — darkroom</h3>
+    <p>the owner's measured taste decided it. his top facets, clustered by clip from his real keeps: <b>motion blur · bokeh</b>, <b>harsh shadows · minimalist</b>, <b>long exposure · seascape</b>, <b>35mm film</b>, <b>minimal architecture</b>. that is a photographer's taste — light, time, and chemistry. an app about photographic taste should feel like the room where photographs are born. the metaphor isn't decoration here; it's the data.</p>
+    <p class="muted">darkroom borrows one thing from each rival: night archive's mono annotations become the lab-note metadata voice, and the quiet ledger's typographic confidence sets the scale of the headings.</p>
+  </div>
+</section>
+
+<section id="refusals">
+  <span class="sn">04</span>
+  <h2>refusals</h2>
+  <p class="muted">the brand is what it declines. verbatim from the contract.</p>
+  <div class="refusals">
+    <div>no badges</div>
+    <div>no confetti</div>
+    <div>no like-counts</div>
+    <div>no streaks-guilt</div>
+    <div>no second accent</div>
+    <div>no borders on images</div>
+    <div>no shadows on images</div>
+    <div>no spinners <span class="hint">(breathing opacity instead)</span></div>
+    <div>no animation on keyboard-triggered actions</div>
+    <div>no uppercase anywhere</div>
+    <div>no exclamation marks</div>
+    <div class="law">chrome chroma ≤ 0.01 — images are the only color.</div>
+  </div>
+</section>
+
+<section id="color">
+  <span class="sn">05</span>
+  <h2>color</h2>
+  <p>one warm hue (~75), one ladder, linear's three-variable thinking: every surface is the same color at a different lightness. there is one elevation step. there is no second.</p>
+
+  <div class="swatch"><div class="chip" style="background:oklch(0.21 0.006 75)"></div><div><div class="name">bg0</div><div class="val">oklch(0.21 0.006 75)</div></div><div class="use">the void — deck page ground</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.24 0.006 75)"></div><div><div class="name">bg</div><div class="val">oklch(0.24 0.006 75)</div></div><div class="use">base page ground</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.27 0.006 75)"></div><div><div class="name">raised</div><div class="val">oklch(0.27 0.006 75)</div></div><div class="use">one elevation step. there is no second.</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.33 0.006 75)"></div><div><div class="name">line</div><div class="val">oklch(0.33 0.006 75)</div></div><div class="use">hairline borders</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.92 0.006 85)"></div><div><div class="name">fg</div><div class="val">oklch(0.92 0.006 85)</div></div><div class="use">primary text — warm off-white</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.63 0.010 80)"></div><div><div class="name">muted</div><div class="val">oklch(0.63 0.010 80)</div></div><div class="use">secondary text</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.45 0.008 80)"></div><div><div class="name">faint</div><div class="val">oklch(0.45 0.008 80)</div></div><div class="use">tertiary text, hints</div></div>
+  <div class="swatch"><div class="chip" style="background:oklch(0.75 0.13 60)"></div><div><div class="name">safelight</div><div class="val">oklch(0.75 0.13 60)</div></div><div class="use">the accent. keep-moments, loved marks, focus rings. nothing else.</div></div>
+
+  <div class="quote">the accent appears only when something is kept or loved — it is the safelight in the darkroom; everything else has no permission to glow.</div>
+  <p class="muted">chrome chroma never exceeds 0.01. the images are the only color in the room — pinterest's principle, taken literally. the ui is the dark; the collection is the light.</p>
+</section>
+
+<section id="typography">
+  <span class="sn">06</span>
+  <h2>typography</h2>
+  <p>one family — manrope, weights 300 and 400 only. six locked styles. nothing is ever free-sized; if a size isn't below, it doesn't exist.</p>
+
+  <div class="spec-row"><span class="ann">display · 2.4rem / 300 / lh 1.15 / lowercase</span><div class="s-display">your taste, developing</div></div>
+  <div class="spec-row"><span class="ann">title · 1.05rem / 400 / lh 1.3</span><div class="s-title">motion blur · bokeh</div></div>
+  <div class="spec-row"><span class="ann">copy · 0.9rem / 300 / lh 1.6</span><div class="s-copy">a third of everything you keep is long exposure. the engine noticed before you did.</div></div>
+  <div class="spec-row"><span class="ann">label · 0.78rem / 400 / lh 1.4</span><div class="s-label">keep / let go</div></div>
+  <div class="spec-row"><span class="ann">mono · 0.68rem / system mono / ls 0.08em / muted</span><div class="s-mono">kept 14 jun · 2400×1600 · fed harsh shadows · 0.91</div></div>
+  <div class="spec-row"><span class="ann">hint · 0.72rem / 300 / faint</span><div class="s-hint">press u to undo</div></div>
+
+  <h3>lowercase, always</h3>
+  <p>lowercase is the anti-corporate register — no title-case marketing voice, no shouting headers. it is also the consistent one: a system that never capitalizes can never capitalize wrongly. the rule has no exceptions, including error states. errors whisper too.</p>
+
+  <h3>mono is for metadata only</h3>
+  <p>the system mono stack (<span class="mono">ui-monospace, "SF Mono", "Cascadia Mono", monospace</span>) carries timestamps, counts, dimensions, and facet scores — the lab notes pencilled on the edge of a print. it never carries sentences. the moment mono starts speaking in prose, the lab-note voice is gone.</p>
+</section>
+
+<section id="space">
+  <span class="sn">07</span>
+  <h2>space &amp; shape</h2>
+  <div class="kv">
+    <div class="k">scale</div><div class="v">4px base. every gap, inset, and offset is a multiple of four.</div>
+    <div class="k">masonry</div><div class="v">2px gaps, radius 0 — one continuous surface of images, the cosmos move. the grid is a contact sheet, not a wall of cards.</div>
+    <div class="k">cards &amp; sheets</div><div class="v">radius 8 maximum anywhere else.</div>
+    <div class="k">deck card</div><div class="v">radius 12 — the one held object in the app earns the softest corner.</div>
+    <div class="k">grain</div><div class="v">3% svg noise overlay on body, pointer-events none. the anti-slop signal: the visible mark of a made thing.</div>
+  </div>
+  <h3>density follows mood</h3>
+  <p>linear's lesson: one system, several densities. trove's contemplative surfaces — the deck, the taste page — are spacious, near-empty, slow to read. its productive surfaces — library, status — run denser, because culling and reading logs are work. same tokens, different breathing room. the room decides how close you stand to the wall.</p>
+</section>
+
+<section id="motion">
+  <span class="sn">08</span>
+  <h2>motion</h2>
+  <p>felt, not seen. motion in trove confirms physics or reveals a print; it never decorates.</p>
+<pre>// lib/motion.ts
+<span class="k">export const</span> snap   = { type: "spring", visualDuration: 0.25, bounce: 0 };
+<span class="k">export const</span> settle = { type: "spring", visualDuration: 0.3,  bounce: 0.15 };
+<span class="k">export const</span> morph  = { type: "spring", visualDuration: 0.45, bounce: 0.1 };
+<span class="k">export const</span> quiet  = [0.25, 1, 0.5, 1];  // micro fades 120–200ms</pre>
+  <ul class="plain">
+    <li><b>keyboard = 0ms.</b> a keypress is a decision already made; animating it is latency.</li>
+    <li><b>ease-out bias.</b> things arrive decisively and leave quietly.</li>
+    <li><b>everything interruptible.</b> no animation ever blocks the next intent.</li>
+    <li><b>transform / opacity / filter only.</b> nothing that touches layout.</li>
+    <li><b>reduced motion = crossfades.</b> MotionConfig reducedMotion="user", globally.</li>
+  </ul>
+  <h3>choreography by surface</h3>
+  <p>the deck drags 1:1 with a pendulum rotate; exits carry the release velocity, so a flick lands where the hand sent it. the under-card rises during the drag — the next frame is already developing. the library's lightbox is a shared-element morph, never a popup. dreams develop in: blur and dimmed brightness clearing over 600ms, the print surfacing in the tray. taste reveals are the one deliberately slow place in the app — 400 to 600ms, because a revelation should take a breath. and skip gets no feedback at all. absence is the feedback.</p>
+</section>
+
+<section id="voice">
+  <span class="sn">09</span>
+  <h2>voice</h2>
+  <p>lowercase, verb-first, brief. negations as manifesto — the mymind move — because saying what you refuse is the fastest way to say what you are. verdicts are named <b>keep / let go</b> in the ui (the schema keeps keep/skip; people aren't schemas). empty states prescribe one action and never apologize twice.</p>
+  <div class="strings">
+    <div>nothing here yet. that's fine.<span class="ctx">empty library</span></div>
+    <div>swipe 20 to wake the engine.<span class="ctx">cold-start prompt</span></div>
+    <div>the pool is developing…<span class="ctx">refill in progress — breathing opacity, no spinner</span></div>
+    <div>done for today.<span class="ctx">end of deck</span></div>
+    <div>you kept 9 of 30. most fed motion blur · bokeh.<span class="ctx">deck reflection card</span></div>
+  </div>
+</section>
+
+<section id="surfaces">
+  <span class="sn">10</span>
+  <h2>the surfaces</h2>
+
+  <div class="surface">
+    <span class="path">/ — the deck</span>
+    <p>ground is bg0, the void. one card floating at max-width 420, faint keyboard hints in the corners. pre-commit feedback on right-drag: a 1px safelight inner ring fading in with distance. nothing appears on left-drag. commit only on release; exits carry velocity. sessions are decks of 30 with thin progress dots — mono "14 left", never a big total. undo is free: the u key plus a last-5 thumbnail tray at the bottom edge. a kept count ticks via numberflow with a ✦ glyph that fades in and out.</p>
+    <span class="attr">patterns — daybreak absence · tinder pre-commit drag · photo mechanic auto-advance · free undo</span>
+  </div>
+
+  <div class="surface">
+    <span class="path">/library — the contact sheet</span>
+    <p>gapless sharp masonry, 2px and radius 0. hover dims the neighbors to 0.75 and fades in a mono metadata strip — the image itself never moves. click opens a shared-element lightbox: image left, mono metadata rail right, a "more like this" strip of six clip neighbors so there is never a dead end. density toggles on - and + keys. the search placeholder is seeded from a real facet keyword.</p>
+    <span class="attr">patterns — cosmos gapless surface · savee density · pinterest never-a-dead-end lightbox</span>
+  </div>
+
+  <div class="surface">
+    <span class="path">/taste — the revelation</span>
+    <p>not a database — a profile of you. full-bleed facet rows with the medoid as hero, developing in on view. display-size lowercase labels, one identity line computed from real data. importance bars scale in once, over 600ms. facets are click-to-rename. mono annotations everywhere: members, importance, last fed.</p>
+    <span class="attr">patterns — wrapped one-insight-per-screen · godly before/after spirit</span>
+  </div>
+
+  <div class="surface">
+    <span class="path">/dreams</span>
+    <p>same masonry as the library. dream cards develop in — blur(12) and brightness(0.4) clearing over 600ms, staggered. ✦ marks the dreams. a "dream from your taste" chip stays. the footer states the boundary: kept dreams never touch retrieval taste.</p>
+    <span class="attr">patterns — darkroom develop-in · honest provenance marking</span>
+  </div>
+
+  <div class="surface">
+    <span class="path">/status — lab notes</span>
+    <p>a reverse-chron one-column activity log with mono timestamps: "01:12 kept unsplash-x → fed harsh shadows" · "01:10 retrained taste · 11 facets". stats above as numberflow numerals. errors sit inline in the log, safelight-tinted — the only other thing allowed to glow, because failures matter as much as keeps. a quiet dot-row notes "judged 5 of the last 7 days" with no streak guilt.</p>
+    <span class="attr">patterns — darkroom.engineering activity log</span>
+  </div>
+
+  <div class="surface">
+    <span class="path">every page</span>
+    <p>the footer is an index — a lowercase text-run, <span class="mono">swipe / library / taste / dreams / status</span> — followed by one negation line: "local-first. no cloud. no one else's algorithm." nav stays top and hints at keys.</p>
+    <span class="attr">patterns — godly inline text nav · mymind negation manifesto</span>
+  </div>
+</section>
+
+<section id="stack">
+  <span class="sn">11</span>
+  <h2>stack</h2>
+  <p>chosen from the vetted designengineer.tools list, which favors agentic tools — ones an agent can drive directly. next.js 16 and motion stay from v2. four additions, three refusals, nine dependencies total.</p>
+  <div class="kv">
+    <div class="k">keep</div><div class="v">next.js 16 · motion — both agentic picks, both already carrying the app</div>
+    <div class="k">add</div><div class="v">@number-flow/react for the stats numerals · oklch tokens as plain css custom properties · system mono (zero bytes shipped) · motion layoutid morphs for the lightbox</div>
+    <div class="k">refuse</div><div class="v">shadcn — the custom css here is smaller than the abstraction · lottie — v1 burned on it · lenis — windowed masonry and native scroll are already smooth</div>
+  </div>
+  <p class="muted">nine dependencies is the budget. every addition after this must displace something.</p>
+</section>
+
+<footer class="colophon">
+  researched and assembled 10 jun 2026 · sources linked inline · direction locked — do not re-litigate.
+</footer>
+
+</main>
+</div>
+</body>
+</html>

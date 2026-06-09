@@ -3,9 +3,10 @@ node_modules/
 next-env.d.ts
 *.tsbuildinfo
 .env*
-data/
-data.backup-*/
-library/
-generated/
-.models/
+/data/
+/data.backup-*/
+/library/
+/generated/
+/.models/
 .DS_Store
+.playwright-mcp/

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Masonry, type MasonryItem } from "@/components/Masonry";
+import { Footer } from "@/components/Footer";
 
 export function DreamsPage() {
   const [items, setItems] = useState<MasonryItem[]>([]);
@@ -31,16 +32,24 @@ export function DreamsPage() {
 
   return (
     <main className="page">
-      <div style={{ display: "flex", alignItems: "baseline", gap: "1rem", marginBottom: "1.2rem", flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: "1.1rem" }}>dreams</h1>
-        <button className="chip" onClick={dream} disabled={dreaming} style={{ cursor: dreaming ? "wait" : "pointer" }}>
-          {dreaming ? "dreaming…" : "dream from your taste"}
-        </button>
-        <span className="small muted">
-          {items.length} generated in your taste · kept dreams never touch retrieval taste
-        </span>
+      <div className="page-body">
+        <div
+          style={{ display: "flex", alignItems: "baseline", gap: "1rem", marginBottom: "1.2rem", flexWrap: "wrap" }}
+        >
+          <h1 className="t-title">dreams</h1>
+          <button
+            className={dreaming ? "chip breathing" : "chip"}
+            onClick={dream}
+            disabled={dreaming}
+            style={{ cursor: dreaming ? "wait" : "pointer" }}
+          >
+            {dreaming ? "dreaming…" : "dream from your taste"}
+          </button>
+          <span className="t-hint">{items.length} dreams ✦ kept dreams never touch retrieval taste</span>
+        </div>
+        <Masonry items={items} developIn />
       </div>
-      <Masonry items={items} />
+      <Footer />
     </main>
   );
 }
