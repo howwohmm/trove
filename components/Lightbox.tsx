@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { settle, quiet } from "@/lib/motion";
+import { sizedUrl } from "@/components/Masonry";
 
 export interface LightboxItem {
   id: string;
@@ -150,14 +151,17 @@ export function Lightbox({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={current.url}
+          src={sizedUrl(current.url, 1400)}
           alt=""
+          fetchPriority="high"
+          decoding="async"
           style={{
             display: "block",
             maxWidth: "70vw",
             maxHeight: "85vh",
             objectFit: "contain",
             borderRadius: 0,
+            background: "var(--raised)",
           }}
         />
 
@@ -206,9 +210,10 @@ export function Lightbox({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={s.url}
+                      src={sizedUrl(s.url, 120)}
                       alt=""
                       loading="lazy"
+                      decoding="async"
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                   </button>

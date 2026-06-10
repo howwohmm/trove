@@ -2,10 +2,17 @@
 
 // pinterest-style masonry: absolute-positioned cells computed synchronously
 // from KNOWN aspect ratios (no measure pass, zero layout shift), windowed so
-// only cells near the viewport mount. gestalt-masonry architecture.
-// contract: 2px gaps, radius 0 — one continuous surface of images (cosmos).
+// only cells near the viewport mount.
+//
+// perf contract (the audit findings, encoded):
+// - scroll handler quantizes the render window to 300px buckets — react only
+//   re-renders when the bucket changes, never per frame
+// - hover dimming + meta reveal are PURE CSS (:has) — zero react involvement
+// - images are requested at the column width they'll render at (?w= for local,
+//   url params for unsplash) — never raw originals
+// - no filter animations in cells; load-in is a 200ms opacity fade
 
-import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 
 export interface MasonryItem {
   id: string;
@@ -28,13 +35,32 @@ interface Cell {
 }
 
 const GAP = 2;
+const BUCKET = 300; // window quantization, px
 
-// quiet ease — micro fades + dream develop-ins (lib/motion.ts)
-const QUIET = "cubic-bezier(0.25, 1, 0.5, 1)";
+/** request the size we'll actually render — the core photo-speed fix */
+export function sizedUrl(url: string, displayW: number): string {
+  const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 2;
+  const target = Math.ceil(displayW * dpr);
+  if (url.startsWith("/api/img/")) {
+    return `${url}?w=${target}`;
+  }
+  try {
+    const u = new URL(url);
+    if (u.hostname === "images.unsplash.com") {
+      u.searchParams.set("w", String(Math.min(target, 1600)));
+      u.searchParams.set("q", "75");
+      u.searchParams.set("auto", "format");
+      return u.toString();
+    }
+  } catch {
+    /* relative or odd url — leave as is */
+  }
+  return url;
+}
 
 function columnsFor(width: number, density?: 2 | 3 | 5): number {
-  if (density === 2) return 2; // fewer, bigger
-  if (density === 5) return width < 560 ? 3 : 5; // denser
+  if (density === 2) return 2;
+  if (density === 5) return width < 560 ? 3 : 5;
   if (width < 560) return 2;
   if (width < 900) return 3;
   if (width < 1200) return 4;
@@ -52,7 +78,7 @@ function layout(
   const cells: Cell[] = [];
   for (const item of items) {
     const h = Math.round((item.height / item.width) * colW);
-    let col = 0; // shortest column
+    let col = 0;
     for (let i = 1; i < cols; i++) if (heights[i] < heights[col]) col = i;
     cells.push({ item, top: heights[col], left: col * (colW + GAP), w: colW, h });
     heights[col] += h + GAP;
@@ -62,25 +88,18 @@ function layout(
 
 const MasonryCell = memo(function MasonryCell({
   cell,
-  active,
-  dimmed,
   developIn,
-  onHover,
   onClick,
 }: {
   cell: Cell;
-  active: boolean;
-  dimmed: boolean;
   developIn?: boolean;
-  onHover: (id: string | null) => void;
   onClick?: (item: MasonryItem) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const { item } = cell;
   return (
     <div
-      onMouseEnter={() => onHover(item.id)}
-      onMouseLeave={() => onHover(null)}
+      data-cell
       onClick={onClick ? () => onClick(item) : undefined}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick(item) : undefined}
       role={onClick ? "button" : undefined}
@@ -91,13 +110,9 @@ const MasonryCell = memo(function MasonryCell({
         left: cell.left,
         width: cell.w,
         height: cell.h,
-        borderRadius: 0,
         overflow: "hidden",
         background: item.color ?? "var(--raised)",
         cursor: onClick ? "pointer" : undefined,
-        // hover is opacity-only — never re-layout
-        opacity: dimmed ? 0.75 : 1,
-        transition: "opacity 0.15s ease",
       }}
     >
       {item.blurData && !loaded && (
@@ -106,12 +121,12 @@ const MasonryCell = memo(function MasonryCell({
           src={item.blurData}
           alt=""
           aria-hidden
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "blur(8px)", transform: "scale(1.1)" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
         />
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={item.url}
+        src={sizedUrl(item.url, cell.w)}
         alt={item.caption ?? ""}
         loading="lazy"
         decoding="async"
@@ -123,17 +138,16 @@ const MasonryCell = memo(function MasonryCell({
           height: "100%",
           objectFit: "cover",
           opacity: loaded ? 1 : 0,
-          ...(developIn
-            ? {
-                // dream develop-in: blur + dark → clear, 600ms quiet ease
-                filter: loaded ? "none" : "blur(12px) brightness(0.4)",
-                transition: `opacity 0.6s ${QUIET}, filter 0.6s ${QUIET}`,
-              }
-            : { transition: "opacity 0.35s ease" }),
+          // develop-in keeps the darkroom feel with brightness only — never
+          // animate blur across a grid (paint storm, the "weird animations")
+          ...(developIn && !loaded ? { filter: "brightness(0.4)" } : {}),
+          transition: developIn
+            ? "opacity 0.45s cubic-bezier(0.25,1,0.5,1), filter 0.45s cubic-bezier(0.25,1,0.5,1)"
+            : "opacity 0.2s ease",
         }}
       />
       {item.meta && (
-        <div className="cell-meta" style={{ opacity: active ? 1 : 0 }}>
+        <div className="cell-meta">
           <span>{item.meta}</span>
         </div>
       )}
@@ -154,15 +168,14 @@ export function Masonry({
   /** column override: 2 = fewer/bigger · 3 = default responsive · 5 = denser */
   density?: 2 | 3 | 5;
   onItemClick?: (item: MasonryItem) => void;
-  /** load-in develops like a print (blur+dark → clear) instead of plain fade */
+  /** load-in develops like a print (dark → clear) instead of plain fade */
   developIn?: boolean;
-  /** on cell hover, the other visible cells dim to 0.75 */
+  /** on cell hover, sibling cells dim — pure css, see .masonry-dim in globals */
   dimSiblings?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [containerW, setContainerW] = useState(0);
-  const [window_, setWindow] = useState({ top: 0, bottom: 4000 });
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [bucket, setBucket] = useState({ top: -1, bottom: 14 }); // in BUCKET units
   const nearEndFired = useRef(false);
 
   useEffect(() => {
@@ -188,11 +201,10 @@ export function Masonry({
         if (!el) return;
         const rect = el.getBoundingClientRect();
         const vh = window.innerHeight;
-        // render window: viewport ± 70% (gestalt's virtualBufferFactor)
-        const top = -rect.top - vh * 0.7;
-        const bottom = -rect.top + vh * 1.7;
-        setWindow({ top, bottom });
-        // prefetch trigger at 2 viewports from the end
+        // quantized render window: react re-renders only on bucket change
+        const top = Math.floor((-rect.top - vh * 0.7) / BUCKET);
+        const bottom = Math.ceil((-rect.top + vh * 1.7) / BUCKET);
+        setBucket((b) => (b.top === top && b.bottom === bottom ? b : { top, bottom }));
         if (onNearEnd && rect.bottom - vh * 2 < vh && !nearEndFired.current) {
           nearEndFired.current = true;
           onNearEnd();
@@ -210,22 +222,21 @@ export function Masonry({
     };
   }, [onNearEnd]);
 
-  const onHover = useCallback((id: string | null) => setHoveredId(id), []);
-
-  const visible = cells.filter((c) => c.top + c.h > window_.top && c.top < window_.bottom);
+  const winTop = bucket.top * BUCKET;
+  const winBottom = bucket.bottom * BUCKET;
+  const visible = useMemo(
+    () => cells.filter((c) => c.top + c.h > winTop && c.top < winBottom),
+    [cells, winTop, winBottom]
+  );
 
   return (
-    <div ref={ref} style={{ position: "relative", height }}>
+    <div
+      ref={ref}
+      className={dimSiblings ? "masonry masonry-dim" : "masonry"}
+      style={{ position: "relative", height }}
+    >
       {visible.map((c) => (
-        <MasonryCell
-          key={c.item.id}
-          cell={c}
-          active={hoveredId === c.item.id}
-          dimmed={!!dimSiblings && hoveredId !== null && hoveredId !== c.item.id}
-          developIn={developIn}
-          onHover={onHover}
-          onClick={onItemClick}
-        />
+        <MasonryCell key={c.item.id} cell={c} developIn={developIn} onClick={onItemClick} />
       ))}
     </div>
   );

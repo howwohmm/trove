@@ -118,7 +118,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .footer-index .run a { color: var(--faint); transition: color 0.15s; }
 .footer-index .run a:hover { color: var(--fg); }
 
-/* ---- masonry: one continuous surface (cosmos) ---- */
+/* ---- masonry: one continuous surface (cosmos) ----
+   hover dimming + meta reveal are pure css — zero react re-renders */
+.masonry-dim:has([data-cell]:hover) [data-cell]:not(:hover) { opacity: 0.75; }
+.masonry [data-cell] { transition: opacity 0.15s ease; }
+.masonry [data-cell]:hover .cell-meta { opacity: 1; }
+
 .cell-meta {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -135,6 +140,12 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   justify-content: space-between;
   gap: 0.5rem;
 }
+
+/* quiet scrollbars — the log was shipping a bright white bar */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+*::-webkit-scrollbar-track { background: transparent; }
 
 /* breathing loading state — no spinners in the darkroom */
 @keyframes breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.8; } }

@@ -46,11 +46,13 @@ function fractionWord(pct: number): string {
 
 const quietEase: [number, number, number, number] = [...quiet];
 
+// develop-in without blur — animating blur() repaints the whole image every
+// frame (the audit's "weird animations"); brightness+opacity reads the same
 const developIn = {
-  initial: { opacity: 0, filter: "blur(12px) brightness(0.4)" },
-  whileInView: { opacity: 1, filter: "blur(0px) brightness(1)" },
+  initial: { opacity: 0, filter: "brightness(0.4)" },
+  whileInView: { opacity: 1, filter: "brightness(1)" },
   viewport: { once: true },
-  transition: { duration: 0.6, ease: quietEase },
+  transition: { duration: 0.45, ease: quietEase },
 };
 
 function FacetLabel({ facet, onRenamed }: { facet: FacetRow; onRenamed: (label: string) => void }) {
@@ -160,7 +162,9 @@ export function TastePage() {
             transition={settle}
             style={{ margin: "2.5rem 0 0", color: "var(--fg)", maxWidth: "40ch" }}
           >
-            {fractionWord(top.keptShare)} of everything you keep is {top.label}
+            {/^\d/.test(fractionWord(top.keptShare))
+              ? `more than anything else, you keep ${top.label}`
+              : `${fractionWord(top.keptShare)} of everything you keep is ${top.label}`}
           </motion.p>
         )}
 
@@ -182,7 +186,7 @@ export function TastePage() {
             >
               {f.medoid && (
                 <motion.img
-                  src={f.medoid}
+                  src={`${f.medoid}?w=680`}
                   alt={f.label}
                   loading="lazy"
                   decoding="async"

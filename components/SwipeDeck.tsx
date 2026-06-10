@@ -18,8 +18,13 @@ import {
   type MotionValue,
 } from "motion/react";
 import NumberFlow from "@number-flow/react";
+import { sizedUrl } from "@/components/Masonry";
 import { settle, quiet } from "@/lib/motion";
 
+
+// one sized url per card — decode-ahead, top card, under-cards and tray all
+// share the exact string so each image is fetched once
+const deckUrl = (url: string) => sizedUrl(url, 440);
 export interface DeckCard {
   id: string;
   url: string;
@@ -114,8 +119,9 @@ function TopCard({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={card.url}
+        src={deckUrl(card.url)}
         alt=""
+        fetchPriority="high"
         draggable={false}
         style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }}
       />
@@ -230,7 +236,7 @@ export function SwipeDeck() {
   useEffect(() => {
     queue.slice(1, 4).forEach((c) => {
       const img = new Image();
-      img.src = c.url;
+      img.src = deckUrl(c.url);
       img.decode().catch(() => {}); // decode-ahead is best-effort
     });
   }, [queue]);
@@ -474,7 +480,7 @@ export function SwipeDeck() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={card.url}
+                    src={deckUrl(card.url)}
                     alt=""
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
@@ -495,7 +501,7 @@ export function SwipeDeck() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={card.url}
+                    src={deckUrl(card.url)}
                     alt=""
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
@@ -566,7 +572,7 @@ export function SwipeDeck() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={entry.card.url}
+                    src={deckUrl(entry.card.url)}
                     alt=""
                     style={{
                       height: 24,
